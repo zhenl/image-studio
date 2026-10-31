@@ -69,6 +69,14 @@ Fastify 后端（本仓库）
 | `step-7-frontend` | 原生前端界面 | [step-7](docs/step-7-前端界面.md) |
 | `step-8-model-mgmt` | 模型管理、状态徽章、收尾 | [step-8](docs/step-8-模型管理.md) |
 
+更多文档：
+
+- [使用说明](docs/使用说明.md) —— 功能与操作指引
+- [架构说明](docs/架构说明.md) —— 模块职责、数据流、存储模型、测试策略
+- [关键技术说明](docs/关键技术说明.md) —— 工作流构建、WS 监听、自校准、
+  反推、zip 等十项技术的原理与实现索引
+- [调试实录](docs/调试实录-WS消息全部丢弃.md) —— WS 帧语义陷阱排查全过程
+
 架构总览另见 comfy-service 的
 [前后端分离架构指南](../comfy-service/docs/前后端分离架构指南.md)。
 
