@@ -234,9 +234,16 @@ export class ComfyClient {
       }, 3000);
       void poll.unref?.();
 
-      socket.on("message", (raw: unknown) => {
-        if (Buffer.isBuffer(raw)) return; // 预览图二进制帧，忽略
-        const ev = (typeof raw === "string" ? JSON.parse(raw) : raw) as WsEvent;
+      // ws 库的 text 帧同样以 Buffer 交付，必须用第二个参数 isBinary 区分，
+      // 不能用 Buffer.isBuffer 判断（会把 JSON 事件全部当预览图丢弃）
+      socket.on("message", (raw: unknown, isBinary = false) => {
+        if (isBinary) return; // 预览图二进制帧，忽略
+        const text = typeof raw === "string"
+          ? raw
+          : Buffer.isBuffer(raw)
+            ? raw.toString("utf8")
+            : JSON.stringify(raw); // 已是对象（测试假帧）直接序列化解析
+        const ev = JSON.parse(text) as WsEvent;
         onEvent(ev);
         if (ev.type === "execution_success") finish({ ok: true });
         else if (ev.type === "execution_error") {

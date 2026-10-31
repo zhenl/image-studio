@@ -221,7 +221,7 @@ describe("listen（假 WebSocket）", () => {
     const c = makeClient(async () => jsonResponse({}), factory);
     const p = c.listen("client-a", "p1", () => {}, 2000);
     await new Promise((r) => setTimeout(r, 5));
-    for (const cb of ws.handlers.get("message") ?? []) cb(Buffer.from([1, 2])); // 二进制 → 忽略
+    for (const cb of ws.handlers.get("message") ?? []) cb(Buffer.from([1, 2]), true); // 二进制（isBinary=true）→ 忽略
     for (const cb of ws.handlers.get("message") ?? []) cb(JSON.stringify({ type: "progress", data: { value: 1, max: 2 } })); // 字符串
     for (const cb of ws.handlers.get("error") ?? []) cb(new Error("ws boom")); // error 终止
     const r = await p;
