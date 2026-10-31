@@ -19,7 +19,8 @@ const MIME: Record<string, string> = {
 };
 
 export function buildApp(ctx: AppContext = buildContext()): FastifyInstance {
-  const app = Fastify({ logger: false });
+  // bodyLimit：多张参考图 base64 可达数十 MB
+  const app = Fastify({ logger: false, bodyLimit: 64 * 1024 * 1024 });
 
   app.get("/", async (_req, reply) => {
     reply.header("Content-Type", MIME[".html"]);

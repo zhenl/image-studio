@@ -228,9 +228,15 @@ describe("listen（假 WebSocket）", () => {
     expect(r).toEqual({ ok: false, error: "ws boom" });
   });
 
-  it("无 wsFactory 时 reject", async () => {
-    const c = makeClient(async () => jsonResponse({}));
-    await expect(c.listen("c", "p", () => {}, 100)).rejects.toBeInstanceOf(ComfyError);
+  it("默认 WS 工厂（未注入时）：连接失败触发 error 终止", async () => {
+    const c = new ComfyClient({
+      baseUrl: "http://127.0.0.1:1", // 无服务端口，快速失败
+      fetchImpl: async () => jsonResponse({}),
+      timeoutMs: 500,
+    });
+    const r = await c.listen("client-a", "p1", () => {}, 2000);
+    expect(r.ok).toBe(false);
+    expect(r.error ?? "").toBeTruthy();
   });
 });
 

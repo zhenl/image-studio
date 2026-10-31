@@ -44,6 +44,9 @@ export type WsEvent =
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+
 export interface WsFactory {
   connect(url: string): WsLike;
 }
@@ -58,6 +61,25 @@ export interface ComfyClientOptions {
   fetchImpl?: FetchLike | undefined;
   wsFactory?: WsFactory | undefined;
   timeoutMs?: number;
+}
+
+/** 默认 WS 工厂：ws 库适配（生产环境；测试注入假实现）。 */
+export function defaultWsFactory(): WsFactory {
+  return {
+    connect(url: string): WsLike {
+      // 动态加载避免 vitest 环境强依赖真实网络栈
+      const WS = (require("ws") as typeof import("ws")).default ?? require("ws");
+      const sock = new WS(url);
+      return {
+        on(event, cb) {
+          sock.on(event, (...args: unknown[]) => cb(...args));
+        },
+        close(code?: number, reason?: string) {
+          sock.close(code, reason);
+        },
+      };
+    },
+  };
 }
 
 export class ComfyError extends Error {
@@ -80,7 +102,7 @@ export class ComfyClient {
   constructor(opts: ComfyClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, "");
     this.fetchImpl = opts.fetchImpl ?? ((u, i) => fetch(u, i));
-    this.wsFactory = opts.wsFactory;
+    this.wsFactory = opts.wsFactory ?? defaultWsFactory();
     this.timeoutMs = opts.timeoutMs ?? 30_000;
   }
 
@@ -185,16 +207,32 @@ export class ComfyClient {
     const socket = this.wsFactory.connect(wsUrl);
 
     return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        socket.close();
-        resolve({ ok: false, error: `推理超时（>${Math.round(timeoutMs / 1000)}s）` });
-      }, timeoutMs);
-
-      const finish = (result: { ok: boolean; error?: string }) => {
+      let settled = false;
+      const settle = (result: { ok: boolean; error?: string }): void => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
+        clearInterval(poll);
         try { socket.close(); } catch { /* 已关闭 */ }
         resolve(result);
       };
+      const finish = settle;
+
+      const timer = setTimeout(() => {
+        settle({ ok: false, error: `推理超时（>${Math.round(timeoutMs / 1000)}s）` });
+      }, timeoutMs);
+
+      // history 兜底轮询：WS 订阅建立晚于任务完成（快速任务）或丢帧时，
+      // 通过 /history 的 completed 标志收敛，避免永久等待
+      const poll = setInterval(() => {
+        void this.history(promptId).then((h) => {
+          if (h?.status.completed) settle({ ok: true });
+          else if (h && h.status.status_str === "error") {
+            settle({ ok: false, error: "执行失败（详见 ComfyUI 日志）" });
+          }
+        }).catch(() => { /* 轮询失败忽略，等下一轮 */ });
+      }, 3000);
+      void poll.unref?.();
 
       socket.on("message", (raw: unknown) => {
         if (Buffer.isBuffer(raw)) return; // 预览图二进制帧，忽略
@@ -209,11 +247,10 @@ export class ComfyClient {
       socket.on("error", (err: unknown) =>
         finish({ ok: false, error: (err as Error).message }));
       socket.on("close", () => {
-        clearTimeout(timer);
         // 非正常完成时通过 history 兜底校验
         void this.history(promptId).then((h) => {
-          if (h?.status.completed) resolve({ ok: true });
-          else resolve({ ok: false, error: "WebSocket 连接中断" });
+          if (h?.status.completed) settle({ ok: true });
+          else settle({ ok: false, error: "WebSocket 连接中断" });
         });
       });
     });
