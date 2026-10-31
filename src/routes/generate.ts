@@ -2,7 +2,10 @@
  * 生成 / 任务 / 预览 / 图库 路由。
  */
 import type { FastifyInstance } from "fastify";
+import fs from "node:fs";
+import path from "node:path";
 import { newId, nowIso } from "../util/ids.js";
+import { buildZip, type ZipEntry } from "../util/zip.js";
 import {
   generateRequestSchema, previewRequestSchema, MAX_REF_IMAGES,
 } from "./schemas.js";
@@ -76,9 +79,13 @@ export function generateRoutes(app: FastifyInstance, ctx: AppContext): void {
   });
 
   app.get("/jobs/:id", (req, reply) => {
-    const job = jobOut((req.params as { id: string }).id);
-    if (!job.id) return reply.status(404).send({ code: "NOT_FOUND", message: "任务不存在" });
-    return job;
+    const id = (req.params as { id: string }).id;
+    const row = store.getJob(id);
+    if (!row) return reply.status(404).send({ code: "NOT_FOUND", message: "任务不存在" });
+    // 详情返回完整信息（含瘦身参数快照）
+    let params: unknown = null;
+    try { params = JSON.parse(row.params_json); } catch { params = null; }
+    return { ...jobOut(id), params };
   });
 
   app.delete("/jobs/:id", (req, reply) => {
@@ -87,6 +94,22 @@ export function generateRoutes(app: FastifyInstance, ctx: AppContext): void {
     scheduler.cancel(id);
     store.deleteJob(id);
     return { ok: true, message: "已取消并删除" };
+  });
+
+  // ---------- 任务批量删除（运行中的会被取消） ----------
+  app.post("/jobs/batch-delete", (req, reply) => {
+    const ids = (req.body as { ids?: string[] } | null)?.ids ?? [];
+    if (!Array.isArray(ids) || !ids.length) {
+      return reply.status(422).send({ code: "INVALID", message: "ids 不能为空" });
+    }
+    let removed = 0;
+    for (const id of ids.slice(0, 200)) {
+      if (!store.getJob(id)) continue;
+      scheduler.cancel(id);
+      store.deleteJob(id);
+      removed++;
+    }
+    return { ok: true, message: `已删除 ${removed} 个任务` };
   });
 
   // ---------- SSE 进度流 ----------
@@ -154,6 +177,73 @@ export function generateRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!img) return reply.status(404).send({ code: "NOT_FOUND", message: "图片不存在" });
     store.setFavorite(id, on);
     return { ok: true };
+  });
+
+  /** 删除单张：删记录 + 尽力删文件。 */
+  function removeImage(id: string): boolean {
+    const img = store.getImage(id);
+    if (!img) return false;
+    try {
+      fs.unlinkSync(path.resolve(cfg.dataDirAbs, img.path));
+    } catch { /* 文件已不存在则忽略 */ }
+    store.deleteImage(id);
+    return true;
+  }
+
+  app.delete("/gallery/:id", (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!removeImage(id)) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "图片不存在" });
+    }
+    return { ok: true, message: "已删除" };
+  });
+
+  app.post("/gallery/batch-delete", (req, reply) => {
+    const ids = (req.body as { ids?: string[] } | null)?.ids ?? [];
+    if (!Array.isArray(ids) || !ids.length) {
+      return reply.status(422).send({ code: "INVALID", message: "ids 不能为空" });
+    }
+    let removed = 0;
+    let missing = 0;
+    for (const id of ids.slice(0, 200)) {
+      if (removeImage(id)) removed++;
+      else missing++;
+    }
+    const msg = `已删除 ${removed} 张` + (missing ? `，${missing} 张不存在（可能已被删除）` : "");
+    return { ok: true, message: msg };
+  });
+
+  // ---------- 批量打包下载（zip，STORE 不压缩——PNG 本身已压缩） ----------
+  app.get("/gallery/batch-download", (req, reply) => {
+    const q = req.query as { ids?: string; prefix?: string };
+    const ids = (q.ids ?? "").split(",").filter(Boolean).slice(0, 200);
+    if (!ids.length) {
+      return reply.status(422).send({ code: "INVALID", message: "ids 不能为空" });
+    }
+    const entries: ZipEntry[] = [];
+    const used = new Set<string>();
+    for (const id of ids) {
+      const img = store.getImage(id);
+      if (!img) continue;
+      const file = path.resolve(cfg.dataDirAbs, img.path);
+      if (!fs.existsSync(file)) continue;
+      const base = path.basename(img.path);
+      let final = base;
+      let i = 1;
+      while (used.has(final)) final = `${i++}_${base}`;
+      used.add(final);
+      entries.push({ name: final, data: fs.readFileSync(file) });
+    }
+    if (!entries.length) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: "所选图片均不存在" });
+    }
+    const zip = buildZip(entries);
+    reply.header("Content-Type", "application/zip");
+    reply.header(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(q.prefix ?? "image-studio")}-${entries.length}images.zip"`,
+    );
+    return reply.send(zip);
   });
 
   // ---------- 状态 ----------

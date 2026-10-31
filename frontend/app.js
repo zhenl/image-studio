@@ -157,12 +157,46 @@ function setProgress(pct, text) {
   if (text) $("progressText").textContent = text;
 }
 
+/* 画布：大图 + 底部缩略图条（本次生成的批次），点击切换 */
+let canvasImages = [];   // [{url, seed}]
+let canvasIndex = 0;
+
 function appendResult(url) {
-  const cell = document.createElement("div");
-  cell.className = "result-cell";
-  cell.innerHTML = `<img src="${url}" loading="lazy" alt="">`;
-  cell.onclick = () => window.open(url, "_blank");
-  $("canvasResults").prepend(cell);
+  canvasImages.push({ url });
+  canvasIndex = canvasImages.length - 1;
+  renderCanvas();
+}
+
+function renderCanvas() {
+  const main = $("canvasMain");
+  if (!canvasImages.length) {
+    main.innerHTML = '<p class="muted">还没有生成结果——输入提示词后点击「开始生成」</p>';
+    $("canvasStrip").classList.add("hidden");
+    return;
+  }
+  const cur = canvasImages[canvasIndex];
+  main.innerHTML = `<img class="canvas-big" src="${cur.url}" alt="生成结果">`;
+  main.querySelector("img").onclick = () => openImageByUrl(cur.url);
+  const strip = $("canvasStrip");
+  if (canvasImages.length > 1) {
+    strip.classList.remove("hidden");
+    strip.innerHTML = "";
+    canvasImages.forEach((im, i) => {
+      const t = document.createElement("div");
+      t.className = "canvas-thumb" + (i === canvasIndex ? " active" : "");
+      t.innerHTML = `<img src="${im.url}" alt="">`;
+      t.onclick = () => { canvasIndex = i; renderCanvas(); };
+      strip.appendChild(t);
+    });
+  } else {
+    strip.classList.add("hidden");
+  }
+}
+
+function openImageByUrl(url) {
+  const found = state.galleryCache?.find((g) => g.url === url);
+  if (found) openImageModal(found);
+  else window.open(url, "_blank");
 }
 
 async function doGenerate() {
@@ -170,12 +204,13 @@ async function doGenerate() {
   const err = validate(p);
   if (err) { showError(err); return; }
   showError(null);
-  $("canvasResults").innerHTML = "";
+  canvasImages = []; canvasIndex = 0; renderCanvas();
   setBusy(true);
   setProgress(2, "提交中…");
   try {
     const job = await api("/generate", { method: "POST", body: JSON.stringify(p) });
     (job.images || []).forEach((im) => appendResult(im.url));
+    refreshGallery();
     setProgress(100, `完成（${job.images?.length ?? 0} 张）`);
     refreshGallery(); refreshStatus();
   } catch (e) {
@@ -224,36 +259,187 @@ function subscribeJob(jobId) {
 }
 
 /* ============ 图库 / 任务 / 状态 ============ */
+const galleryState = { selectMode: false, selIds: new Set() };
+state.galleryCache = [];
+
 async function refreshGallery() {
   try {
     const data = await api("/gallery?limit=60");
-    $("galleryGrid").innerHTML = "";
-    for (const im of data.items) {
+    state.galleryCache = data.items || [];
+    const grid = $("galleryGrid");
+    grid.innerHTML = "";
+    $("galleryCount").textContent = state.galleryCache.length ? `${state.galleryCache.length} 张` : "";
+    for (const im of state.galleryCache) {
       const cell = document.createElement("div");
       cell.className = "result-cell";
-      cell.innerHTML = `<img src="${im.url}" loading="lazy" alt="">
-        <button class="fav ${im.favorite ? "on" : ""}" data-id="${im.id}">${im.favorite ? "★" : "☆"}</button>`;
-      cell.querySelector(".fav").onclick = async (e) => {
+      cell.innerHTML = `<img src="${im.url}" loading="lazy" alt="">` +
+        (galleryState.selectMode
+          ? `<span class="check ${galleryState.selIds.has(im.id) ? "on" : ""}" data-id="${im.id}">${galleryState.selIds.has(im.id) ? "✓" : ""}</span>`
+          : `<button class="fav ${im.favorite ? "on" : ""}" data-id="${im.id}">${im.favorite ? "★" : "☆"}</button>`);
+      cell.onclick = async () => {
+        if (galleryState.selectMode) {
+          galleryState.selIds.has(im.id) ? galleryState.selIds.delete(im.id) : galleryState.selIds.add(im.id);
+          refreshGallery();
+          return;
+        }
+        openImageModal(im);
+      };
+      const fav = cell.querySelector(".fav");
+      if (fav) fav.onclick = async (e) => {
         e.stopPropagation();
         await api(`/gallery/${im.id}/favorite`, { method: "POST", body: JSON.stringify({ favorite: !im.favorite }) });
         refreshGallery();
       };
-      $("galleryGrid").appendChild(cell);
+      grid.appendChild(cell);
     }
   } catch { /* 静默 */ }
 }
 
+function setGallerySelectMode(on) {
+  galleryState.selectMode = on;
+  galleryState.selIds.clear();
+  $("galleryBatchBar").classList.toggle("hidden", !on);
+  $("btnGallerySelect").classList.toggle("hidden", on);
+  refreshGallery();
+}
+
+async function batchZip() {
+  const ids = [...galleryState.selIds];
+  if (!ids.length) { toast("请先选择图片"); return; }
+  toast(`正在打包 ${ids.length} 张…`);
+  try {
+    const res = await fetch(`${API}/gallery/batch-download?ids=${encodeURIComponent(ids.join(","))}`);
+    if (!res.ok) throw new Error(`打包失败 (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `image-studio-${ids.length}images.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`已下载 ${ids.length} 张（zip）`);
+  } catch (e) { toast(e.message); }
+}
+
+async function batchDeleteGallery() {
+  const ids = [...galleryState.selIds];
+  if (!ids.length) { toast("请先选择图片"); return; }
+  if (!confirm(`确定删除选中的 ${ids.length} 张图片？文件会一并删除，不可恢复。`)) return;
+  try {
+    const res = await api("/gallery/batch-delete", { method: "POST", body: JSON.stringify({ ids }) });
+    toast(res.message);
+    galleryState.selIds.clear();
+    refreshGallery();
+  } catch (e) { toast(e.message); }
+}
+
+/* 图片详情弹窗 */
+function fmtTime(iso) { return (iso || "").replace("T", " ").slice(0, 19); }
+
+function openImageModal(im) {
+  $("imageModalImg").src = im.url;
+  $("imageModalDownload").href = im.url;
+  $("imageModalDownload").setAttribute("download", `image-${im.seed ?? im.id}.png`);
+  $("imageModalMeta").innerHTML = `
+    <div><b>提示词</b>：${escapeHtml(im.prompt || "—")}</div>
+    <div class="muted">${im.width || "?"} × ${im.height || "?"} · ${im.steps ?? "?"} 步 · 引导 ${im.guidance ?? "?"} · 种子 ${im.seed ?? "?"} · ${im.elapsed_ms ? (im.elapsed_ms / 1000).toFixed(1) + "s" : ""} · ${fmtTime(im.created_at)}${im.mode === "img2img" ? ` · ${im.ref_mode === "edit" ? "智能编辑" : "传统重绘"}` : ""}</div>`;
+  $("imageModalDelete").onclick = async () => {
+    if (!confirm("确定删除这张图片？文件会一并删除，不可恢复。")) return;
+    try {
+      await api(`/gallery/${im.id}`, { method: "DELETE" });
+      toast("已删除");
+      $("imageModal").classList.add("hidden");
+      refreshGallery();
+    } catch (e) { toast(e.message); }
+  };
+  $("imageModal").classList.remove("hidden");
+}
+
+function escapeHtml(text) {
+  return String(text ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+const jobsState = { selectMode: false, selIds: new Set() };
+
 async function refreshJobs() {
   try {
     const data = await api("/jobs?limit=20");
-    $("jobsList").innerHTML = data.items.map((j) => `
-      <div class="job-row">
+    const list = $("jobsList");
+    list.innerHTML = "";
+    for (const j of data.items) {
+      const row = document.createElement("div");
+      row.className = "job-row";
+      row.innerHTML = `
+        ${jobsState.selectMode ? `<input type="checkbox" data-id="${j.id}" ${jobsState.selIds.has(j.id) ? "checked" : ""}>` : ""}
         <span class="badge ${j.status === "succeeded" ? "ok" : j.status === "failed" ? "err" : ""}">${j.status}</span>
         <span class="muted">${j.created_at.replace("T", " ").slice(0, 19)}</span>
-        <span>${j.prompt.slice(0, 40)}</span>
+        <span class="job-prompt">${escapeHtml(j.prompt.slice(0, 40))}</span>
         <span class="muted">${j.progress}%</span>
-      </div>`).join("");
+        <button class="btn ghost small" data-act="detail">详情</button>`;
+      row.onclick = (e) => {
+        if (e.target.dataset.act === "detail" || e.target === row) openJobModal(j.id);
+      };
+      const cb = row.querySelector("input[type=checkbox]");
+      if (cb) cb.onclick = (e) => {
+        e.stopPropagation();
+        cb.checked ? jobsState.selIds.add(j.id) : jobsState.selIds.delete(j.id);
+      };
+      list.appendChild(row);
+    }
   } catch { /* 静默 */ }
+}
+
+function setJobsSelectMode(on) {
+  jobsState.selectMode = on;
+  jobsState.selIds.clear();
+  $("jobsBatchBar").classList.toggle("hidden", !on);
+  $("btnJobSelect").classList.toggle("hidden", on);
+  refreshJobs();
+}
+
+async function batchDeleteJobs() {
+  const ids = [...jobsState.selIds];
+  if (!ids.length) { toast("请先勾选要删除的任务"); return; }
+  if (!confirm(`确定删除选中的 ${ids.length} 个任务？运行中的会被取消。`)) return;
+  try {
+    const res = await api("/jobs/batch-delete", { method: "POST", body: JSON.stringify({ ids }) });
+    toast(res.message);
+    jobsState.selIds.clear();
+    refreshJobs();
+  } catch (e) { toast(e.message); }
+}
+
+/* 任务详情弹窗 */
+async function openJobModal(jobId) {
+  $("jobModal").classList.remove("hidden");
+  const body = $("jobModalBody");
+  body.innerHTML = "加载中…";
+  try {
+    const j = await api(`/jobs/${jobId}`);
+    const p = j.params || {};
+    const imgs = (j.images || []).map((im) =>
+      `<div class="result-cell small"><img src="${im.url}" loading="lazy" onclick="window.open('${im.url}','_blank')"></div>`).join("");
+    body.innerHTML = `
+      <p><span class="badge ${j.status === "succeeded" ? "ok" : j.status === "failed" ? "err" : ""}">${j.status}</span>
+         <span class="muted">${fmtTime(j.created_at)}</span> · 进度 ${j.progress}%</p>
+      ${j.error ? `<p class="file-missing">${escapeHtml(j.error)}</p>` : ""}
+      <p><b>提示词</b>：${escapeHtml(j.prompt || "—")}</p>
+      <p class="muted">${p.width || "?"}×${p.height || "?"} · ${p.steps || "?"} 步 · 张数 ${j.count ?? p.batch_size ?? 1} · 种子 ${j.seed ?? "?"}${p.mode === "img2img" ? ` · ${p.ref_mode === "edit" ? "智能编辑" : "传统重绘"} · 参考图 ${p.ref_count ?? (p.ref_images?.length ?? 0)} 张` : ""}</p>
+      ${imgs ? `<div class="results-grid">${imgs}</div>` : ""}
+      <div class="actions"><button class="btn ghost small danger" id="jobModalDelete">🗑 删除任务</button></div>`;
+    $("jobModalDelete").onclick = async () => {
+      if (!confirm("确定删除该任务？")) return;
+      try {
+        await api(`/jobs/${jobId}`, { method: "DELETE" });
+        toast("已删除");
+        $("jobModal").classList.add("hidden");
+        refreshJobs();
+      } catch (e) { toast(e.message); }
+    };
+  } catch (e) {
+    body.innerHTML = `<p class="file-missing">加载失败：${escapeHtml(e.message)}</p>`;
+  }
 }
 
 async function refreshStatus() {
@@ -376,6 +562,20 @@ function bindEvents() {
   $("btnRandomSeed").onclick = () => { $("seed").value = Math.floor(Math.random() * 2147483647); };
   $("btnGenerate").onclick = doGenerate;
   $("btnQueue").onclick = doQueue;
+  // 图库多选
+  $("btnGallerySelect").onclick = () => setGallerySelectMode(true);
+  $("btnGalleryCancelSel").onclick = () => setGallerySelectMode(false);
+  $("btnGalleryZip").onclick = batchZip;
+  $("btnGalleryBatchDel").onclick = batchDeleteGallery;
+  // 任务多选
+  $("btnJobSelect").onclick = () => setJobsSelectMode(true);
+  $("btnJobCancelSel").onclick = () => setJobsSelectMode(false);
+  $("btnJobBatchDel").onclick = batchDeleteJobs;
+  // 弹窗关闭
+  $("imageClose").onclick = () => $("imageModal").classList.add("hidden");
+  $("imageModal").onclick = (e) => { if (e.target.id === "imageModal") $("imageModal").classList.add("hidden"); };
+  $("jobModalClose").onclick = () => $("jobModal").classList.add("hidden");
+  $("jobModal").onclick = (e) => { if (e.target.id === "jobModal") $("jobModal").classList.add("hidden"); };
   $("btnModels").onclick = openModels;
   $("modelClose").onclick = () => $("modelModal").classList.add("hidden");
   $("modelModal").onclick = (e) => { if (e.target.id === "modelModal") $("modelModal").classList.add("hidden"); };

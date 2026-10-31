@@ -158,6 +158,14 @@ export class Store {
     this.db.prepare("DELETE FROM jobs WHERE id = ?").run(id);
   }
 
+  deleteImage(id: string): void {
+    this.db.prepare("DELETE FROM images WHERE id = ?").run(id);
+  }
+
+  getImage(id: string): ImageRow | undefined {
+    return this.db.prepare("SELECT * FROM images WHERE id = ?").get(id) as ImageRow | undefined;
+  }
+
   /** 近期成功出图记录（耗时自校准的数据源）。 */
   recentImagesForCalibration(limit = 30): Array<{ width: number; height: number; steps: number; elapsed_ms: number }> {
     return this.db

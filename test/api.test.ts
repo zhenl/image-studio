@@ -213,3 +213,78 @@ describe("静态产物 /data/*", () => {
     expect(none.statusCode).toBe(404);
   });
 });
+
+describe("图库删除与批量操作", () => {
+  async function genOne(): Promise<{ id: string; url: string }> {
+    const r = await app.inject({ method: "POST", url: "/api/v1/generate", payload: validBody });
+    return r.json().images[0];
+  }
+
+  it("DELETE /gallery/:id 删除记录与文件；重复删除 404", async () => {
+    const img = await genOne();
+    expect((await app.inject({ method: "GET", url: img.url })).statusCode).toBe(200);
+    const del = await app.inject({ method: "DELETE", url: `/api/v1/gallery/${img.id}` });
+    expect(del.json().ok).toBe(true);
+    expect((await app.inject({ method: "GET", url: img.url })).statusCode).toBe(404);
+    expect((await app.inject({ method: "DELETE", url: `/api/v1/gallery/${img.id}` })).statusCode).toBe(404);
+  });
+
+  it("POST /gallery/batch-delete 混合存在/不存在的 id", async () => {
+    const a = await genOne();
+    const b = await genOne();
+    const res = await app.inject({
+      method: "POST", url: "/api/v1/gallery/batch-delete",
+      payload: { ids: [a.id, b.id, "img_nothere"] },
+    });
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.message).toContain("已删除 2 张");
+    expect(body.message).toContain("1 张不存在");
+  });
+
+  it("空 ids 422", async () => {
+    const r = await app.inject({ method: "POST", url: "/api/v1/gallery/batch-delete", payload: { ids: [] } });
+    expect(r.statusCode).toBe(422);
+  });
+
+  it("GET /gallery/batch-download 返回 zip（EOCD 签名）", async () => {
+    const a = await genOne();
+    const b = await genOne();
+    const res = await app.inject({
+      method: "GET", url: `/api/v1/gallery/batch-download?ids=${encodeURIComponent([a.id, b.id].join(","))}`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toBe("application/zip");
+    const buf = Buffer.from(res.rawPayload);
+    expect(buf.subarray(buf.length - 22).readUInt32LE(0)).toBe(0x06054b50);
+    expect(buf.subarray(buf.length - 22).readUInt16LE(8)).toBe(2);
+    await app.inject({ method: "POST", url: "/api/v1/gallery/batch-delete", payload: { ids: [a.id, b.id] } });
+  });
+
+  it("batch-download 空/全不存在 422/404", async () => {
+    expect((await app.inject({ method: "GET", url: "/api/v1/gallery/batch-download?ids=" })).statusCode).toBe(422);
+    expect((await app.inject({ method: "GET", url: "/api/v1/gallery/batch-download?ids=img_nothere" })).statusCode).toBe(404);
+  });
+});
+
+describe("任务详情与批量删除", () => {
+  it("GET /jobs/:id 返回含参数快照", async () => {
+    const r = await app.inject({ method: "POST", url: "/api/v1/generate", payload: validBody });
+    const id = r.json().id;
+    const detail = (await app.inject({ method: "GET", url: `/api/v1/jobs/${id}` })).json();
+    expect(detail.params).toMatchObject({ prompt: "a cat", width: 512 });
+    expect(detail.images).toHaveLength(1);
+  });
+
+  it("POST /jobs/batch-delete 删除多个；空 ids 422", async () => {
+    const a = (await app.inject({ method: "POST", url: "/api/v1/jobs", payload: validBody })).json();
+    const b = (await app.inject({ method: "POST", url: "/api/v1/jobs", payload: validBody })).json();
+    const res = await app.inject({
+      method: "POST", url: "/api/v1/jobs/batch-delete",
+      payload: { ids: [a.job_id, b.job_id, "job_nothere"] },
+    });
+    expect(res.json().message).toContain("已删除 2 个");
+    expect((await app.inject({ method: "GET", url: `/api/v1/jobs/${a.job_id}` })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/api/v1/jobs/batch-delete", payload: { ids: [] } })).statusCode).toBe(422);
+  });
+});

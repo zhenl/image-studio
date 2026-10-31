@@ -114,12 +114,60 @@
       <button class="tab" data-tab="jobs">任务</button>
     </div>
     <div class="tab-pane active" id="pane-canvas">
-      <div id="canvasResults" class="results-grid"></div>
+      <div id="canvasMain" class="canvas-main">
+        <p class="muted">还没有生成结果——输入提示词后点击「开始生成」</p>
+      </div>
+      <div id="canvasStrip" class="canvas-strip hidden"></div>
     </div>
-    <div class="tab-pane" id="pane-gallery"><div id="galleryGrid" class="results-grid"></div></div>
-    <div class="tab-pane" id="pane-jobs"><div id="jobsList"></div></div>
+    <div class="tab-pane" id="pane-gallery">
+      <div class="toolbar">
+        <button class="btn ghost small" id="btnGallerySelect">选择</button>
+        <span class="muted" id="galleryCount"></span>
+      </div>
+      <div id="galleryBatchBar" class="toolbar batch-bar hidden">
+        <button class="btn ghost small" id="btnGalleryZip">⬇ 打包下载</button>
+        <button class="btn ghost small danger" id="btnGalleryBatchDel">🗑 批量删除</button>
+        <button class="btn ghost small" id="btnGalleryCancelSel">取消选择</button>
+      </div>
+      <div id="galleryGrid" class="results-grid"></div>
+    </div>
+    <div class="tab-pane" id="pane-jobs">
+      <div class="toolbar">
+        <button class="btn ghost small" id="btnJobSelect">选择</button>
+      </div>
+      <div id="jobsBatchBar" class="toolbar batch-bar hidden">
+        <button class="btn ghost small danger" id="btnJobBatchDel">🗑 批量删除任务</button>
+        <button class="btn ghost small" id="btnJobCancelSel">取消选择</button>
+      </div>
+      <div id="jobsList"></div>
+    </div>
   </section>
 </main>
+
+<!-- 图片详情弹窗 -->
+<div class="modal-mask hidden" id="imageModal">
+  <div class="modal detail-modal">
+    <div class="modal-head"><h3>图片详情</h3>
+      <button class="btn ghost small" id="imageClose">✕</button></div>
+    <div class="modal-body detail-body">
+      <img id="imageModalImg" alt="图片详情">
+      <div id="imageModalMeta" class="detail-meta"></div>
+      <div class="actions">
+        <a class="btn ghost small" id="imageModalDownload" download>⬇ 下载</a>
+        <button class="btn ghost small danger" id="imageModalDelete">🗑 删除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 任务详情弹窗 -->
+<div class="modal-mask hidden" id="jobModal">
+  <div class="modal">
+    <div class="modal-head"><h3>任务详情</h3>
+      <button class="btn ghost small" id="jobModalClose">✕</button></div>
+    <div class="modal-body" id="jobModalBody">加载中…</div>
+  </div>
+</div>
 
 <script src="/app.js"></script>
 </body>
