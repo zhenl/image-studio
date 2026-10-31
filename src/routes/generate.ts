@@ -35,6 +35,8 @@ export function generateRoutes(app: FastifyInstance, ctx: AppContext): void {
       seed: p.seed, count: p.count, created_at: nowIso(),
     });
     try {
+      // 同步路径没有调度器参与，手动标记 running（异步 /jobs 由调度器标记）
+      store.updateJob(jobId, { status: "running", progress: 1, message: "运行中" });
       await withTimeout(
         ctx.generation.runJob(jobId, p as never),
         cfg.INFER_TIMEOUT_SECONDS * 1000,

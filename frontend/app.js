@@ -208,9 +208,10 @@ async function doGenerate() {
   setBusy(true);
   setProgress(2, "提交中…");
   try {
+    refreshJobs();
     const job = await api("/generate", { method: "POST", body: JSON.stringify(p) });
     (job.images || []).forEach((im) => appendResult(im.url));
-    refreshGallery();
+    refreshGallery(); refreshJobs();
     setProgress(100, `完成（${job.images?.length ?? 0} 张）`);
     refreshGallery(); refreshStatus();
   } catch (e) {
@@ -362,31 +363,54 @@ function escapeHtml(text) {
 
 const jobsState = { selectMode: false, selIds: new Set() };
 
+function renderJobsList(items) {
+  const list = $("jobsList");
+  list.innerHTML = "";
+  for (const j of items) {
+    const row = document.createElement("div");
+    row.className = "job-row";
+    row.innerHTML = `
+      ${jobsState.selectMode ? `<input type="checkbox" data-id="${j.id}" ${jobsState.selIds.has(j.id) ? "checked" : ""}>` : ""}
+      <span class="badge ${j.status === "succeeded" ? "ok" : j.status === "failed" ? "err" : ""}">${j.status}</span>
+      <span class="muted">${j.created_at.replace("T", " ").slice(0, 19)}</span>
+      <span class="job-prompt">${escapeHtml(j.prompt.slice(0, 40))}</span>
+      <span class="muted">${j.progress}%</span>
+      <button class="btn ghost small" data-act="detail">详情</button>`;
+    row.onclick = (e) => {
+      if (e.target.dataset.act === "detail" || e.target === row) openJobModal(j.id);
+    };
+    const cb = row.querySelector("input[type=checkbox]");
+    if (cb) cb.onclick = (e) => {
+      e.stopPropagation();
+      cb.checked ? jobsState.selIds.add(j.id) : jobsState.selIds.delete(j.id);
+    };
+    list.appendChild(row);
+  }
+}
+
 async function refreshJobs() {
   try {
     const data = await api("/jobs?limit=20");
-    const list = $("jobsList");
-    list.innerHTML = "";
-    for (const j of data.items) {
-      const row = document.createElement("div");
-      row.className = "job-row";
-      row.innerHTML = `
-        ${jobsState.selectMode ? `<input type="checkbox" data-id="${j.id}" ${jobsState.selIds.has(j.id) ? "checked" : ""}>` : ""}
-        <span class="badge ${j.status === "succeeded" ? "ok" : j.status === "failed" ? "err" : ""}">${j.status}</span>
-        <span class="muted">${j.created_at.replace("T", " ").slice(0, 19)}</span>
-        <span class="job-prompt">${escapeHtml(j.prompt.slice(0, 40))}</span>
-        <span class="muted">${j.progress}%</span>
-        <button class="btn ghost small" data-act="detail">详情</button>`;
-      row.onclick = (e) => {
-        if (e.target.dataset.act === "detail" || e.target === row) openJobModal(j.id);
-      };
-      const cb = row.querySelector("input[type=checkbox]");
-      if (cb) cb.onclick = (e) => {
-        e.stopPropagation();
-        cb.checked ? jobsState.selIds.add(j.id) : jobsState.selIds.delete(j.id);
-      };
-      list.appendChild(row);
-    }
+    renderJobsList(data.items);
+    updateJobsBadge(data.items);
+  } catch { /* 静默 */ }
+}
+
+/** 分页标题显示活动任务数：任务（N）。 */
+function updateJobsBadge(items) {
+  const tab = $("tabJobs");
+  if (!tab) return;
+  const active = items.filter((j) => j.status === "queued" || j.status === "running").length;
+  tab.textContent = active ? `任务（${active}）` : "任务";
+}
+
+/** 轮询：计数徽标常更新；任务分页激活时列表也实时刷新（状态/进度）。 */
+async function pollJobs() {
+  try {
+    const data = await api("/jobs?limit=20");
+    updateJobsBadge(data.items);
+    const active = document.querySelector("#pane-jobs")?.classList.contains("active");
+    if (active) renderJobsList(data.items);
   } catch { /* 静默 */ }
 }
 
@@ -587,3 +611,5 @@ scheduleEstimate();
 refreshStatus();
 refreshGallery();
 setInterval(refreshStatus, 15000);
+setInterval(pollJobs, 3000);
+pollJobs();
