@@ -51,4 +51,11 @@ describe("loadConfig", () => {
     expect(c.ENGINE_MODE).toBe("mock"); // .env 覆盖默认
     fs.rmSync(tmp, { recursive: true, force: true });
   });
+
+  it(".env 路径不可读（目录）时回退默认值", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "is-env-"));
+    const c = loadConfig({ PORT: "7003" }, tmp); // 目录 → parse 抛错 → 默认
+    expect(c.PORT).toBe(7003);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
 });
