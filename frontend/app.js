@@ -527,6 +527,87 @@ async function openModels() {
   }
 }
 
+/* ============ 反向推导提示词 ============ */
+const describeState = { image: null };
+
+function openDescribeModal() {
+  $("describeModal").classList.remove("hidden");
+}
+
+$("describeDrop").onclick = () => $("describeFile").click();
+$("describeDrop").addEventListener("dragover", (e) => { e.preventDefault(); e.currentTarget.classList.add("dragover"); });
+$("describeDrop").addEventListener("dragleave", (e) => e.currentTarget.classList.remove("dragover"));
+$("describeDrop").addEventListener("drop", (e) => {
+  e.preventDefault();
+  e.currentTarget.classList.remove("dragover");
+  const f = [...e.dataTransfer.files].find((x) => x.type.startsWith("image/"));
+  if (f) readDescribeFile(f);
+});
+$("describeFile").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (f) readDescribeFile(f);
+  e.target.value = "";
+});
+
+function readDescribeFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    describeState.image = reader.result;
+    $("describePreview").innerHTML = `<img src="${describeState.image}" alt="待推导图片">`;
+    $("describeResult").value = "";
+    $("describeStatus").textContent = "";
+  };
+  reader.readAsDataURL(file);
+}
+
+$("btnDoDescribe").onclick = async () => {
+  if (!describeState.image) { toast("请先选择图片"); return; }
+  const btn = $("btnDoDescribe");
+  btn.disabled = true;
+  $("describeStatus").textContent = "推导中…本地模型推理约需 20 秒至几分钟";
+  $("describeResult").value = "";
+  try {
+    const res = await api("/describe", {
+      method: "POST",
+      body: JSON.stringify({ image: describeState.image }),
+    });
+    $("describeResult").value = res.text;
+    $("describeStatus").textContent = "完成";
+  } catch (e) {
+    $("describeStatus").textContent = "失败：" + e.message;
+    toast("推导失败：" + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("describeCopy").onclick = async () => {
+  const text = $("describeResult").value.trim();
+  if (!text) { toast("暂无结果可复制"); return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("已复制到剪贴板");
+  } catch { toast("复制失败，请手动选择文本复制"); }
+};
+
+$("describeSave").onclick = async () => {
+  const text = $("describeResult").value.trim();
+  if (!text) { toast("暂无结果可保存"); return; }
+  try {
+    await api("/prompts", { method: "POST", body: JSON.stringify({ kind: "prompt", text }) });
+    toast("已保存到常用提示词");
+  } catch (e) { toast("保存失败：" + e.message); }
+};
+
+$("describeApply").onclick = () => {
+  const text = $("describeResult").value.trim();
+  if (!text) { toast("暂无结果可替换"); return; }
+  $("prompt").value = text;
+  $("promptLen").textContent = text.length;
+  $("describeModal").classList.add("hidden");
+  toast("已替换提示词输入框");
+};
+
 /* ============ 提示词管理 ============ */
 const promptState = { kind: "prompt", q: "" };
 
@@ -662,6 +743,9 @@ function bindEvents() {
   $("jobModal").onclick = (e) => { if (e.target.id === "jobModal") $("jobModal").classList.add("hidden"); };
   $("btnModels").onclick = openModels;
   $("btnPrompts").onclick = openPromptModal;
+  $("btnDescribe").onclick = openDescribeModal;
+  $("describeClose").onclick = () => $("describeModal").classList.add("hidden");
+  $("describeModal").onclick = (e) => { if (e.target.id === "describeModal") $("describeModal").classList.add("hidden"); };
   $("promptClose").onclick = () => $("promptModal").classList.add("hidden");
   $("promptModal").onclick = (e) => { if (e.target.id === "promptModal") $("promptModal").classList.add("hidden"); };
   els("#promptKindTabs .seg").forEach((btn) => {

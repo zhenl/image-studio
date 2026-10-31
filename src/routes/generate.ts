@@ -248,6 +248,20 @@ export function generateRoutes(app: FastifyInstance, ctx: AppContext): void {
     return reply.send(zip);
   });
 
+  // ---------- 图像反推提示词 ----------
+  app.post("/describe", async (req, reply) => {
+    const image = (req.body as { image?: string } | null)?.image;
+    if (!image || image.length < 16) {
+      return reply.status(422).send({ code: "INVALID", message: "请提供图片（base64 / data URL）" });
+    }
+    try {
+      const text = await ctx.describe.describe(image, `${ctx.clientId}-desc`);
+      return { text };
+    } catch (err) {
+      return reply.status(500).send({ code: "DESCRIBE_ERROR", message: (err as Error).message });
+    }
+  });
+
   // ---------- 状态 ----------
   app.get("/status", async () => {
     const reachable = await comfy.ping();

@@ -17,6 +17,7 @@
     <span id="statusInfo" class="muted">—</span>
     <button id="btnModels" class="btn btn-ghost">模型管理</button>
     <button id="btnPrompts" class="btn btn-ghost">提示词管理</button>
+    <button id="btnDescribe" class="btn btn-ghost">反向推导提示词</button>
   </div>
 </header>
 
@@ -195,6 +196,35 @@
         <button class="btn btn-primary small" id="promptAdd">保存</button>
       </div>
       <div id="promptList" class="prompt-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 反向推导提示词对话框 -->
+<div class="modal-mask hidden" id="describeModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>反向推导提示词</h3>
+      <button class="btn ghost small" id="describeClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="describe-drop" id="describeDrop" title="点击选择图片，或拖拽图片到此处">
+        <input type="file" id="describeFile" accept="image/*" hidden>
+        <div id="describePreview">
+          <div style="font-size:28px">🖼</div>
+          <div>点击选择图片（或拖拽到此处）</div>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button class="btn btn-primary" id="btnDoDescribe">推导</button>
+        <span class="muted" id="describeStatus"></span>
+      </div>
+      <textarea id="describeResult" rows="5" placeholder="推导结果将显示在这里…" readonly></textarea>
+      <div class="actions" style="margin-top:8px">
+        <button class="btn ghost small" id="describeCopy">📋 复制到剪贴板</button>
+        <button class="btn ghost small" id="describeSave">💾 保存到常用提示词</button>
+        <button class="btn ghost small" id="describeApply">✏️ 替换提示词</button>
+      </div>
     </div>
   </div>
 </div>

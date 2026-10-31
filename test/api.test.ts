@@ -328,3 +328,28 @@ describe("提示词库", () => {
     expect((await app.inject({ method: "POST", url: "/api/v1/prompts/nope/use" })).statusCode).toBe(404);
   });
 });
+
+async function png64(): Promise<string> {
+  const buf = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#9c6" } }).png().toBuffer();
+  return `data:image/png;base64,${buf.toString("base64")}`;
+}
+
+describe("POST /api/v1/describe（图像反推提示词）", () => {
+  it("返回反推文本", async () => {
+    const img = await png64();
+    ctx.describe.describe = async () => "a orange cat wearing a hat, soft light";
+    const res = await app.inject({ method: "POST", url: "/api/v1/describe",
+      payload: { image: img } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().text).toContain("orange cat");
+  });
+
+  it("缺图 422；失败 500 带信息", async () => {
+    expect((await app.inject({ method: "POST", url: "/api/v1/describe", payload: {} })).statusCode).toBe(422);
+    ctx.describe.describe = async () => { throw new Error("编码器未加载"); };
+    const r = await app.inject({ method: "POST", url: "/api/v1/describe",
+      payload: { image: "data:image/png;base64,aaaaaaaaaaaaaaaa" } });
+    expect(r.statusCode).toBe(500);
+    expect(r.json().message).toContain("编码器未加载");
+  });
+});

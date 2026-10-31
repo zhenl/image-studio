@@ -8,6 +8,7 @@ import { Store } from "./db/store.js";
 import { EventBus } from "./events/bus.js";
 import { Scheduler } from "./queue/scheduler.js";
 import { ComfyClient } from "./comfy/client.js";
+import { createDescribeService, type DescribeEngineLike } from "./services/describe.js";
 import { GenerationService, type EngineLike } from "./services/generation.js";
 import { Calibrator } from "./services/calibration.js";
 
@@ -20,6 +21,7 @@ export interface AppContext {
   comfy: ComfyClient;
   generation: GenerationService;
   calibrator: Calibrator;
+  describe: ReturnType<typeof createDescribeService>;
   clientId: string;
 }
 
@@ -50,8 +52,10 @@ export function buildContext(over: ContextOverrides = {}): AppContext {
     worker: (jobId, params) => generation.runJob(jobId, params as never),
   });
   const calibrator = new Calibrator(store);
+  const describe = createDescribeService(
+    comfy as unknown as DescribeEngineLike, cfg.TEXT_ENCODER_FILE);
 
-  const ctx: AppContext = { cfg, store, bus, scheduler, engine, comfy, generation, calibrator, clientId };
+  const ctx: AppContext = { cfg, store, bus, scheduler, engine, comfy, generation, calibrator, describe, clientId };
   (globalThis as { __isCtx?: AppContext }).__isCtx = ctx;
   return ctx;
 }
