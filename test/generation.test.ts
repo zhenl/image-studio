@@ -82,7 +82,8 @@ describe("GenerationService", () => {
     expect(job.progress).toBe(100);
     const imgs = store.imagesByJob("j1");
     expect(imgs).toHaveLength(1);
-    expect(fs.existsSync(path.join(cfg.projectRoot, imgs[0]!.path))).toBe(true);
+    expect(fs.existsSync(path.join(cfg.dataDirAbs, imgs[0]!.path))).toBe(true);
+    expect(imgs[0]!.url).toMatch(/^\/data\//);
     expect(imgs[0]!.seed).toBeGreaterThanOrEqual(0);
     // 调用顺序：submit → listen → history → view
     expect(calls.filter((c) => !c.startsWith("upload")).map((c) => c.split(":")[0]))

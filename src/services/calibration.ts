@@ -28,6 +28,11 @@ export class Calibrator {
 
   constructor(private readonly store: Store, private readonly maxSamples = 30) {}
 
+  /** 强制失效缓存（测试或手动刷新用）。 */
+  invalidate(): void {
+    this.cache = null;
+  }
+
   calibrate(now = Date.now()): Calibration {
     if (this.cache && now - this.cache.ts < CACHE_TTL_MS) return this.cache.value;
 

@@ -167,15 +167,15 @@ export class GenerationService {
     const buf = await this.engine.viewImage(outputs[0]!);
 
     const dir = this.outputDir(p.output_subdir);
-    const relPath = path.relative(this.cfg.projectRoot, dir);
+    const relToData = path.relative(this.cfg.dataDirAbs, dir);
     const file = outputFilename(seed, newId("img").slice(-6));
     fs.writeFileSync(path.join(dir, file), buf);
 
     const meta = await sharp(buf).metadata();
     return {
       id: newId("img"), job_id: jobId,
-      path: path.posix.join(relPath, file),
-      url: `/${path.posix.join(relPath, file)}`,
+      path: path.posix.join(relToData.split(path.sep).join("/"), file),
+      url: `/data/${path.posix.join(relToData.split(path.sep).join("/"), file)}`,
       width: meta.width ?? p.width, height: meta.height ?? p.height,
       steps: p.steps, guidance: p.guidance_scale, seed,
       prompt, negative: p.negative_prompt, mode: p.mode,
