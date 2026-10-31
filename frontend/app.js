@@ -273,6 +273,48 @@ async function refreshStatus() {
   } catch { /* 静默 */ }
 }
 
+/* ============ 模型管理 ============ */
+async function openModels() {
+  const modal = $("modelModal");
+  modal.classList.remove("hidden");
+  const body = $("modelBody");
+  body.innerHTML = "加载中…";
+  try {
+    const data = await api("/models/list");
+    if (data.source !== "comfy") {
+      body.innerHTML = `<p class="muted">ComfyUI 不可达，无法获取模型列表。请确认 comfy-service 已启动（${"COMFYUI_URL"} 见 .env）。</p>`;
+      return;
+    }
+    const group = (label, items, key) => items.length ? `
+      <p><strong>${label}</strong></p>
+      <select id="sel-${key}" style="width:100%">
+        ${items.map((m) => `<option value="${m.name}" ${m.current ? "selected" : ""}>${m.name}</option>`).join("")}
+      </select>` : "";
+    body.innerHTML = `
+      <p class="muted">列表来自 ComfyUI 实际可见的模型（object_info），选择后写入 .env，下一张图生效。</p>
+      ${group("扩散模型", data.items, "transformer")}
+      ${group("文本编码器", data.text_encoders, "text-encoder")}
+      ${group("VAE", data.vaes, "vae")}
+      <div class="actions"><button class="btn btn-primary" id="btnApplyModels">应用选择</button></div>`;
+    $("btnApplyModels").onclick = async () => {
+      const payload = {};
+      for (const [key, field] of [["transformer", "name"], ["text-encoder", "text_encoder"], ["vae", "vae"]]) {
+        const sel = $(`sel-${key}`);
+        if (sel) payload[field] = sel.value;
+      }
+      try {
+        const res = await api("/models/select", { method: "POST", body: JSON.stringify(payload) });
+        toast(res.message || "已切换");
+        modal.classList.add("hidden");
+      } catch (e) {
+        toast("切换失败：" + e.message);
+      }
+    };
+  } catch (e) {
+    body.innerHTML = `<p class="muted">加载失败：${e.message}</p>`;
+  }
+}
+
 function toast(msg) {
   const t = document.createElement("div");
   t.className = "toast";
@@ -334,6 +376,9 @@ function bindEvents() {
   $("btnRandomSeed").onclick = () => { $("seed").value = Math.floor(Math.random() * 2147483647); };
   $("btnGenerate").onclick = doGenerate;
   $("btnQueue").onclick = doQueue;
+  $("btnModels").onclick = openModels;
+  $("modelClose").onclick = () => $("modelModal").classList.add("hidden");
+  $("modelModal").onclick = (e) => { if (e.target.id === "modelModal") $("modelModal").classList.add("hidden"); };
 }
 
 renderRefStrip();

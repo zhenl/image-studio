@@ -8,6 +8,7 @@ import Fastify, { type FastifyInstance, type FastifyError } from "fastify";
 import { config } from "./config.js";
 import { healthRoutes } from "./routes/health.js";
 import { generateRoutes } from "./routes/generate.js";
+import { modelRoutes } from "./routes/models.js";
 import { buildContext, type AppContext } from "./context.js";
 
 const MIME: Record<string, string> = {
@@ -32,7 +33,10 @@ export function buildApp(ctx: AppContext = buildContext()): FastifyInstance {
   }
   app.register(healthRoutes, { prefix: "/api/v1" });
   app.register(
-    (instance) => void generateRoutes(instance, ctx),
+    (instance) => {
+      generateRoutes(instance, ctx);
+      modelRoutes(instance, ctx);
+    },
     { prefix: "/api/v1" },
   );
 

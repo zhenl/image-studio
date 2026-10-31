@@ -43,6 +43,8 @@ export interface AppConfig extends RawConfig {
   outputDirAbs: string;
   dbPathAbs: string;
   frontendDirAbs: string;
+  /** 模型选择等运行时变更的持久化目标（默认项目根 .env；测试指向临时文件） */
+  envFileAbs: string;
 }
 
 /** 解析环境变量（可注入，便于测试）。默认读取 process.env + .env。 */
@@ -62,6 +64,7 @@ export function loadConfig(
     outputDirAbs: path.resolve(projectRoot, parsed.OUTPUT_DIR),
     dbPathAbs: path.resolve(projectRoot, parsed.DB_PATH),
     frontendDirAbs: path.resolve(projectRoot, "frontend"),
+    envFileAbs: dotenvPath,
   };
 }
 

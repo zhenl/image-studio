@@ -15,8 +15,19 @@
   <div class="status-area">
     <span id="engineBadge" class="badge">加载中…</span>
     <span id="statusInfo" class="muted">—</span>
+    <button id="btnModels" class="btn btn-ghost">模型管理</button>
   </div>
 </header>
+
+<div class="modal-mask hidden" id="modelModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>模型管理</h3>
+      <button class="btn ghost small" id="modelClose">✕</button>
+    </div>
+    <div id="modelBody" class="modal-body">加载中…</div>
+  </div>
+</div>
 
 <main class="layout">
   <!-- 左侧控制栏 -->
