@@ -527,6 +527,64 @@ async function openModels() {
   }
 }
 
+/* ============ 提示词管理 ============ */
+const promptState = { kind: "prompt", q: "" };
+
+async function openPromptModal() {
+  $("promptModal").classList.remove("hidden");
+  $("promptSearch").value = "";
+  promptState.q = "";
+  renderPromptList();
+}
+
+async function renderPromptList() {
+  const list = $("promptList");
+  list.innerHTML = "加载中…";
+  try {
+    const params = new URLSearchParams({ kind: promptState.kind });
+    if (promptState.q) params.set("q", promptState.q);
+    const data = await api(`/prompts?${params}`);
+    list.innerHTML = "";
+    if (!data.items.length) {
+      list.innerHTML = '<p class="muted">暂无内容，用上方输入框添加。</p>';
+      return;
+    }
+    for (const p of data.items) {
+      const row = document.createElement("div");
+      row.className = "prompt-row";
+      row.innerHTML = `
+        <div class="prompt-text">${escapeHtml(p.text)}</div>
+        <span class="muted">用过 ${p.use_count} 次</span>
+        <button class="btn ghost small" data-act="replace">替换到输入框</button>
+        <button class="btn ghost small" data-act="edit">编辑</button>
+        <button class="btn ghost small danger" data-act="del">删除</button>`;
+      const setPromptBox = async (text) => {
+        // 替换到主界面对应输入框（prompt / negative），并计数
+        $(promptState.kind === "prompt" ? "prompt" : "negative").value = text;
+        $("promptLen") && ($("promptLen").textContent = $("prompt").value.length);
+        await api(`/prompts/${p.id}/use`, { method: "POST" }).catch(() => {});
+        toast("已替换到输入框");
+        $("promptModal").classList.add("hidden");
+      };
+      row.querySelector('[data-act=replace]').onclick = () => setPromptBox(p.text);
+      row.querySelector('[data-act=del]').onclick = async () => {
+        if (!confirm("确定删除该提示词？")) return;
+        await api(`/prompts/${p.id}`, { method: "DELETE" });
+        renderPromptList();
+      };
+      row.querySelector('[data-act=edit]').onclick = async () => {
+        const text = prompt("修改提示词内容：", p.text);
+        if (text === null || !text.trim()) return;
+        await api(`/prompts/${p.id}`, { method: "PUT", body: JSON.stringify({ text: text.trim() }) });
+        renderPromptList();
+      };
+      list.appendChild(row);
+    }
+  } catch (e) {
+    list.innerHTML = `<p class="file-missing">加载失败：${escapeHtml(e.message)}</p>`;
+  }
+}
+
 function toast(msg) {
   const t = document.createElement("div");
   t.className = "toast";
@@ -603,6 +661,31 @@ function bindEvents() {
   $("jobModalClose").onclick = () => $("jobModal").classList.add("hidden");
   $("jobModal").onclick = (e) => { if (e.target.id === "jobModal") $("jobModal").classList.add("hidden"); };
   $("btnModels").onclick = openModels;
+  $("btnPrompts").onclick = openPromptModal;
+  $("promptClose").onclick = () => $("promptModal").classList.add("hidden");
+  $("promptModal").onclick = (e) => { if (e.target.id === "promptModal") $("promptModal").classList.add("hidden"); };
+  els("#promptKindTabs .seg").forEach((btn) => {
+    btn.onclick = () => {
+      promptState.kind = btn.dataset.kind;
+      els("#promptKindTabs .seg").forEach((b) => b.classList.toggle("active", b === btn));
+      renderPromptList();
+    };
+  });
+  let promptSearchTimer = null;
+  $("promptSearch").addEventListener("input", (e) => {
+    clearTimeout(promptSearchTimer);
+    promptSearchTimer = setTimeout(() => { promptState.q = e.target.value.trim(); renderPromptList(); }, 260);
+  });
+  $("promptAdd").onclick = async () => {
+    const text = $("promptNewText").value.trim();
+    if (!text) { toast("内容不能为空"); return; }
+    try {
+      await api("/prompts", { method: "POST", body: JSON.stringify({ kind: promptState.kind, text }) });
+      $("promptNewText").value = "";
+      toast("已保存");
+      renderPromptList();
+    } catch (e) { toast("保存失败：" + e.message); }
+  };
   $("modelClose").onclick = () => $("modelModal").classList.add("hidden");
   $("modelModal").onclick = (e) => { if (e.target.id === "modelModal") $("modelModal").classList.add("hidden"); };
 }

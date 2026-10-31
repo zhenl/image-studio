@@ -288,3 +288,43 @@ describe("任务详情与批量删除", () => {
     expect((await app.inject({ method: "POST", url: "/api/v1/jobs/batch-delete", payload: { ids: [] } })).statusCode).toBe(422);
   });
 });
+
+describe("提示词库", () => {
+  it("新增 → 列表（按类型过滤+搜索）→ 修改 → 使用计数 → 删除", async () => {
+    const p1 = (await app.inject({ method: "POST", url: "/api/v1/prompts",
+      payload: { kind: "prompt", text: "a cyberpunk street at night" } })).json();
+    const n1 = (await app.inject({ method: "POST", url: "/api/v1/prompts",
+      payload: { kind: "negative", text: "blurry, low quality" } })).json();
+    expect(p1.kind).toBe("prompt");
+    expect(n1.kind).toBe("negative");
+
+    const list = (await app.inject({ method: "GET", url: "/api/v1/prompts?kind=prompt" })).json();
+    expect(list.items.some((i: { id: string }) => i.id === p1.id)).toBe(true);
+    const search = (await app.inject({ method: "GET", url: "/api/v1/prompts?q=blurry" })).json();
+    expect(search.items.map((i: { id: string }) => i.id)).toEqual([n1.id]);
+    const none = (await app.inject({ method: "GET", url: "/api/v1/prompts?q=不存在的内容" })).json();
+    expect(none.items).toHaveLength(0);
+
+    const upd = await app.inject({ method: "PUT", url: `/api/v1/prompts/${p1.id}`,
+      payload: { text: "a rainy cyberpunk street" } });
+    expect(upd.json().ok).toBe(true);
+    expect(ctx.store.getPrompt(p1.id)!.text).toContain("rainy");
+
+    const use = (await app.inject({ method: "POST", url: `/api/v1/prompts/${p1.id}/use` })).json();
+    expect(use.text).toContain("rainy");
+    expect(ctx.store.getPrompt(p1.id)!.use_count).toBe(1);
+
+    expect((await app.inject({ method: "DELETE", url: `/api/v1/prompts/${n1.id}` })).json().ok).toBe(true);
+    expect((await app.inject({ method: "DELETE", url: `/api/v1/prompts/${n1.id}` })).statusCode).toBe(404);
+  });
+
+  it("非法新增 / 空 text 422；不存在 404", async () => {
+    expect((await app.inject({ method: "POST", url: "/api/v1/prompts",
+      payload: { kind: "weird", text: "x" } })).statusCode).toBe(422);
+    expect((await app.inject({ method: "POST", url: "/api/v1/prompts",
+      payload: { kind: "prompt", text: "  " } })).statusCode).toBe(422);
+    expect((await app.inject({ method: "PUT", url: "/api/v1/prompts/nope",
+      payload: { text: "x" } })).statusCode).toBe(404);
+    expect((await app.inject({ method: "POST", url: "/api/v1/prompts/nope/use" })).statusCode).toBe(404);
+  });
+});

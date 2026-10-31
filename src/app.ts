@@ -9,6 +9,7 @@ import { config } from "./config.js";
 import { healthRoutes } from "./routes/health.js";
 import { generateRoutes } from "./routes/generate.js";
 import { modelRoutes } from "./routes/models.js";
+import { promptRoutes } from "./routes/prompts.js";
 import { buildContext, type AppContext } from "./context.js";
 
 const MIME: Record<string, string> = {
@@ -37,6 +38,7 @@ export function buildApp(ctx: AppContext = buildContext()): FastifyInstance {
     (instance) => {
       generateRoutes(instance, ctx);
       modelRoutes(instance, ctx);
+      promptRoutes(instance, ctx);
     },
     { prefix: "/api/v1" },
   );

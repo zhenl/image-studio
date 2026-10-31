@@ -16,6 +16,7 @@
     <span id="engineBadge" class="badge">加载中…</span>
     <span id="statusInfo" class="muted">—</span>
     <button id="btnModels" class="btn btn-ghost">模型管理</button>
+    <button id="btnPrompts" class="btn btn-ghost">提示词管理</button>
   </div>
 </header>
 
@@ -171,6 +172,30 @@
     <div class="modal-head"><h3>任务详情</h3>
       <button class="btn ghost small" id="jobModalClose">✕</button></div>
     <div class="modal-body" id="jobModalBody">加载中…</div>
+  </div>
+</div>
+
+<!-- 提示词管理对话框 -->
+<div class="modal-mask hidden" id="promptModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>提示词管理</h3>
+      <button class="btn ghost small" id="promptClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="segmented" id="promptKindTabs">
+        <button class="seg active" data-kind="prompt">常用提示词</button>
+        <button class="seg" data-kind="negative">常用反向提示词</button>
+      </div>
+      <div class="field-head" style="margin-top:10px">
+        <input type="text" id="promptSearch" placeholder="🔍 搜索提示词…" style="flex:1">
+      </div>
+      <div class="prompt-add-row">
+        <textarea id="promptNewText" rows="2" placeholder="输入新提示词，点「保存」加入列表"></textarea>
+        <button class="btn btn-primary small" id="promptAdd">保存</button>
+      </div>
+      <div id="promptList" class="prompt-list"></div>
+    </div>
   </div>
 </div>
 

@@ -80,7 +80,24 @@ CREATE TABLE IF NOT EXISTS images (
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images(job_id);
+
+CREATE TABLE IF NOT EXISTS prompts (
+  id          TEXT PRIMARY KEY,
+  kind        TEXT NOT NULL,           -- prompt | negative
+  text        TEXT NOT NULL,
+  use_count   INTEGER DEFAULT 0,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prompts_kind ON prompts(kind);
 `;
+
+export interface PromptRow {
+  id: string;
+  kind: "prompt" | "negative";
+  text: string;
+  use_count: number;
+  created_at: string;
+}
 
 export class Store {
   private db: Database.Database;
@@ -173,5 +190,39 @@ export class Store {
         WHERE elapsed_ms > 0 AND steps > 0 AND width > 0 AND height > 0
         ORDER BY created_at DESC LIMIT ?`)
       .all(limit) as never;
+  }
+
+  // ---------------- 提示词库 ----------------
+  insertPrompt(row: PromptRow): void {
+    this.db
+      .prepare("INSERT INTO prompts (id, kind, text, use_count, created_at) VALUES (@id, @kind, @text, 0, @created_at)")
+      .run(row as unknown as Record<string, unknown>);
+  }
+
+  listPrompts(kind?: string, q?: string): PromptRow[] {
+    const conds: string[] = [];
+    const args: unknown[] = [];
+    if (kind) { conds.push("kind = ?"); args.push(kind); }
+    if (q) { conds.push("text LIKE ?"); args.push(`%${q}%`); }
+    const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+    return this.db
+      .prepare(`SELECT * FROM prompts ${where} ORDER BY use_count DESC, created_at DESC`)
+      .all(...args) as PromptRow[];
+  }
+
+  getPrompt(id: string): PromptRow | undefined {
+    return this.db.prepare("SELECT * FROM prompts WHERE id = ?").get(id) as PromptRow | undefined;
+  }
+
+  updatePromptText(id: string, text: string): void {
+    this.db.prepare("UPDATE prompts SET text = ? WHERE id = ?").run(text, id);
+  }
+
+  touchPrompt(id: string): void {
+    this.db.prepare("UPDATE prompts SET use_count = use_count + 1 WHERE id = ?").run(id);
+  }
+
+  deletePrompt(id: string): void {
+    this.db.prepare("DELETE FROM prompts WHERE id = ?").run(id);
   }
 }

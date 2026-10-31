@@ -986,3 +986,13 @@ input[type="range"]::-moz-range-thumb {
 .detail-body img { max-width: 100%; border-radius: 8px; }
 .detail-meta { margin-top: 10px; font-size: 13px; line-height: 1.7; word-break: break-all; }
 .result-cell.small { min-height: 90px; aspect-ratio: auto; }
+
+/* ===== 提示词管理 ===== */
+.prompt-add-row { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
+.prompt-add-row textarea { flex: 1; }
+.prompt-list { max-height: 340px; overflow-y: auto; }
+.prompt-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; border-bottom: 1px solid var(--border, #eee); font-size: 13px;
+}
+.prompt-text { flex: 1; word-break: break-all; }
