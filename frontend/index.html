@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Studio · 本地图片生成器</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>Image Studio</h1>
+    <p class="sub">Qwen-Image 2.1 · Node.js + TypeScript · 本地文生图 / 多参考图智能编辑</p>
+  </div>
+  <div class="status-area">
+    <span id="engineBadge" class="badge">加载中…</span>
+    <span id="statusInfo" class="muted">—</span>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- 左侧控制栏 -->
+  <aside class="panel">
+    <div class="segmented" id="modeSwitch">
+      <button class="seg active" data-mode="txt2img">文生图</button>
+      <button class="seg" data-mode="img2img">图生图</button>
+    </div>
+
+    <section class="field">
+      <div class="field-head">
+        <label for="prompt">提示词</label>
+        <span class="muted" id="promptLen">0</span>
+      </div>
+      <textarea id="prompt" rows="5"
+        placeholder="文生图：描述画面…&#10;智能编辑：用 &lt;image1&gt; / &lt;image2&gt; 指代参考图"></textarea>
+      <div class="token-chips" id="tokenChips" style="display:none">
+        <span class="muted">插入引用：</span>
+        <button class="chip" data-token="image_1">&lt;1&gt;</button>
+        <button class="chip" data-token="image_2">&lt;2&gt;</button>
+        <button class="chip" data-token="image_3">&lt;3&gt;</button>
+        <button class="chip" data-token="image_4">&lt;4&gt;</button>
+        <button class="chip" data-token="image_5">&lt;5&gt;</button>
+        <button class="chip" data-token="image_6">&lt;6&gt;</button>
+        <button class="chip" data-token="image_7">&lt;7&gt;</button>
+        <button class="chip" data-token="image_8">&lt;8&gt;</button>
+        <button class="chip" data-token="image_9">&lt;9&gt;</button>
+      </div>
+    </section>
+
+    <section class="field" id="refField" style="display:none">
+      <div class="field-head"><label>参考图（最多 9 张，第 1 张为画布）</label></div>
+      <div id="refStrip" class="ref-strip"></div>
+      <input type="file" id="refFile" accept="image/*" hidden multiple />
+      <p class="hint" id="refModeHint"></p>
+      <div class="segmented" id="refModeSwitch">
+        <button class="seg active" data-refmode="auto">自动</button>
+        <button class="seg" data-refmode="edit">智能编辑</button>
+        <button class="seg" data-refmode="classic">传统重绘</button>
+      </div>
+      <div class="slider-row" id="strengthRow" style="display:none">
+        <span>重绘强度</span>
+        <input type="range" id="strength" min="0" max="1" step="0.05" value="0.6">
+        <output id="strengthVal">0.60</output>
+      </div>
+    </section>
+
+    <section class="field">
+      <div class="field-head"><label>尺寸预设</label></div>
+      <div class="segmented" id="sizePreset">
+        <button class="seg" data-w="768" data-h="768">768²</button>
+        <button class="seg active" data-w="1024" data-h="1024">1024²</button>
+        <button class="seg" data-w="768" data-h="1024">768×1024</button>
+        <button class="seg" data-w="1024" data-h="768">1024×768</button>
+      </div>
+      <div class="slider-row"><span>步数</span>
+        <input type="range" id="steps" min="1" max="50" value="8"><output id="stepsVal">8</output></div>
+      <div class="slider-row"><span>引导系数</span>
+        <input type="range" id="guidance" min="0" max="20" step="0.5" value="4"><output id="guidanceVal">4.0</output></div>
+      <div class="slider-row"><span>生成张数</span>
+        <input type="range" id="batch" min="1" max="4" value="1"><output id="batchVal">1</output></div>
+      <div class="slider-row"><span>种子</span>
+        <input type="number" id="seed" value="-1" min="-1" style="width:120px">
+        <button class="btn ghost small" id="btnRandomSeed">随机</button></div>
+    </section>
+
+    <div class="actions">
+      <button id="btnGenerate" class="btn btn-primary">开始生成</button>
+      <button id="btnQueue" class="btn btn-secondary">后台生成</button>
+    </div>
+    <p class="estimate" id="estimate"></p>
+    <div class="progress hidden" id="progressBar">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <p class="hint" id="progressText"></p>
+    <div class="error hidden" id="errorBox"><span id="errorText"></span></div>
+  </aside>
+
+  <!-- 右侧结果区 -->
+  <section class="panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="canvas">画布</button>
+      <button class="tab" data-tab="gallery">图库</button>
+      <button class="tab" data-tab="jobs">任务</button>
+    </div>
+    <div class="tab-pane active" id="pane-canvas">
+      <div id="canvasResults" class="results-grid"></div>
+    </div>
+    <div class="tab-pane" id="pane-gallery"><div id="galleryGrid" class="results-grid"></div></div>
+    <div class="tab-pane" id="pane-jobs"><div id="jobsList"></div></div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

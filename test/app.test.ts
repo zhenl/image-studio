@@ -5,10 +5,11 @@ import { loadConfig } from "../src/config.js";
 const app = buildApp();
 
 describe("GET /", () => {
-  it("返回服务信息", async () => {
+  it("返回前端页面（HTML）", async () => {
     const res = await app.inject({ method: "GET", url: "/" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ name: "image-studio", status: "ok" });
+    expect(res.headers["content-type"]).toContain("text/html");
+    expect(res.body).toContain("Image Studio");
   });
 });
 

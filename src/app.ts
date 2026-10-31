@@ -10,10 +10,26 @@ import { healthRoutes } from "./routes/health.js";
 import { generateRoutes } from "./routes/generate.js";
 import { buildContext, type AppContext } from "./context.js";
 
+const MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".png": "image/png",
+};
+
 export function buildApp(ctx: AppContext = buildContext()): FastifyInstance {
   const app = Fastify({ logger: false });
 
-  app.get("/", async () => ({ name: "image-studio", status: "ok" }));
+  app.get("/", async (_req, reply) => {
+    reply.header("Content-Type", MIME[".html"]);
+    return reply.send(fs.createReadStream(path.join(config.frontendDirAbs, "index.html")));
+  });
+  for (const file of ["app.js", "style.css"]) {
+    app.get(`/${file}`, (_req, reply) => {
+      reply.header("Content-Type", MIME[path.extname(file)] ?? "text/plain");
+      return reply.send(fs.createReadStream(path.join(config.frontendDirAbs, file)));
+    });
+  }
   app.register(healthRoutes, { prefix: "/api/v1" });
   app.register(
     (instance) => void generateRoutes(instance, ctx),

@@ -42,6 +42,7 @@ export interface AppConfig extends RawConfig {
   dataDirAbs: string;
   outputDirAbs: string;
   dbPathAbs: string;
+  frontendDirAbs: string;
 }
 
 /** 解析环境变量（可注入，便于测试）。默认读取 process.env + .env。 */
@@ -60,6 +61,7 @@ export function loadConfig(
     dataDirAbs: path.resolve(projectRoot, parsed.DATA_DIR),
     outputDirAbs: path.resolve(projectRoot, parsed.OUTPUT_DIR),
     dbPathAbs: path.resolve(projectRoot, parsed.DB_PATH),
+    frontendDirAbs: path.resolve(projectRoot, "frontend"),
   };
 }
 
