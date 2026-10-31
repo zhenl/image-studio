@@ -31,7 +31,7 @@ function activeRefMode() {
 function collectParams() {
   const p = {
     prompt: $("prompt").value.trim(),
-    negative_prompt: "",
+    negative_prompt: $("negative").value.trim(),
     width: Number(document.querySelector("#sizePreset .active").dataset.w),
     height: Number(document.querySelector("#sizePreset .active").dataset.h),
     steps: Number($("steps").value),
@@ -343,6 +343,7 @@ function openImageModal(im) {
   $("imageModalDownload").setAttribute("download", `image-${im.seed ?? im.id}.png`);
   $("imageModalMeta").innerHTML = `
     <div><b>提示词</b>：${escapeHtml(im.prompt || "—")}</div>
+    ${im.negative ? `<div><b>负面</b>：${escapeHtml(im.negative)}</div>` : ""}
     <div class="muted">${im.width || "?"} × ${im.height || "?"} · ${im.steps ?? "?"} 步 · 引导 ${im.guidance ?? "?"} · 种子 ${im.seed ?? "?"} · ${im.elapsed_ms ? (im.elapsed_ms / 1000).toFixed(1) + "s" : ""} · ${fmtTime(im.created_at)}${im.mode === "img2img" ? ` · ${im.ref_mode === "edit" ? "智能编辑" : "传统重绘"}` : ""}</div>`;
   $("imageModalDelete").onclick = async () => {
     if (!confirm("确定删除这张图片？文件会一并删除，不可恢复。")) return;
@@ -449,6 +450,7 @@ async function openJobModal(jobId) {
          <span class="muted">${fmtTime(j.created_at)}</span> · 进度 ${j.progress}%</p>
       ${j.error ? `<p class="file-missing">${escapeHtml(j.error)}</p>` : ""}
       <p><b>提示词</b>：${escapeHtml(j.prompt || "—")}</p>
+      ${j.negative ? `<p><b>负面提示词</b>：${escapeHtml(j.negative)}</p>` : ""}
       <p class="muted">${p.width || "?"}×${p.height || "?"} · ${p.steps || "?"} 步 · 张数 ${j.count ?? p.batch_size ?? 1} · 种子 ${j.seed ?? "?"}${p.mode === "img2img" ? ` · ${p.ref_mode === "edit" ? "智能编辑" : "传统重绘"} · 参考图 ${p.ref_count ?? (p.ref_images?.length ?? 0)} 张` : ""}</p>
       ${imgs ? `<div class="results-grid">${imgs}</div>` : ""}
       <div class="actions"><button class="btn ghost small danger" id="jobModalDelete">🗑 删除任务</button></div>`;

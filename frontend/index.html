@@ -56,6 +56,11 @@
         <button class="chip" data-token="image_8">&lt;8&gt;</button>
         <button class="chip" data-token="image_9">&lt;9&gt;</button>
       </div>
+      <div class="field-head" style="margin-top:8px">
+        <label for="negative">负面提示词</label>
+        <span class="muted" id="negativeHint">不想要的内容，如：模糊、低质量</span>
+      </div>
+      <textarea id="negative" rows="2" placeholder="留空表示无负面提示；智能编辑模式下不生效（官方 CFG=1）"></textarea>
     </section>
 
     <section class="field" id="refField" style="display:none">
