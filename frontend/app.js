@@ -13,10 +13,12 @@ const $ = (id) => document.getElementById(id);
 const els = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 async function api(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
+  // 仅在携带请求体时声明 JSON 头——无 body 的 DELETE/GET 带上它，
+  // Fastify 会尝试解析空 body 而报 400（body cannot be empty…）
+  const headers = opts.body
+    ? { "Content-Type": "application/json", ...(opts.headers || {}) }
+    : opts.headers;
+  const res = await fetch(`${API}${path}`, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
   return data;
