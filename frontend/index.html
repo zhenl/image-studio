@@ -94,6 +94,15 @@
         <input type="range" id="steps" min="1" max="50" value="8"><output id="stepsVal">8</output></div>
       <div class="slider-row"><span>引导系数</span>
         <input type="range" id="guidance" min="0" max="20" step="0.5" value="4"><output id="guidanceVal">4.0</output></div>
+      <p class="hint hidden" id="cfg1Hint" style="color:#b42318">ⓘ 当前引导系数为 1：负面提示词不参与采样（CFG=1 时无条件分支权重为 0），如需负面生效请提高到 3 以上</p>
+      <div class="slider-row"><span>采样器</span>
+        <select id="sampler" style="flex:1">
+          <option value="euler" selected>euler（默认，官方模板）</option>
+          <option value="res_multistep">res_multistep（新推荐，低步数表现好）</option>
+          <option value="dpmpp_2m">dpmpp_2m</option>
+          <option value="dpmpp_2m_sde">dpmpp_2m_sde</option>
+          <option value="heun">heun</option>
+        </select></div>
       <div class="slider-row"><span>生成张数</span>
         <input type="range" id="batch" min="1" max="4" value="1"><output id="batchVal">1</output></div>
       <div class="slider-row"><span>种子</span>

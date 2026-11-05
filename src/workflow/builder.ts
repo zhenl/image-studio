@@ -22,6 +22,8 @@ export interface BaseParams {
   steps: number;
   guidance: number;
   seed: number;
+  /** 采样器（euler / res_multistep / …）；编辑通道固定 euler（官方约定） */
+  sampler?: string | undefined;
   models: ModelFiles;
 }
 
@@ -71,7 +73,7 @@ export function buildTxt2Img(p: BaseParams): Workflow {
     "9": n("KSampler", {
       model: ["4", 0], positive: ["5", 0], negative: ["6", 0],
       latent_image: ["7", 0], seed: p.seed, steps: p.steps,
-      cfg: p.guidance, sampler_name: "euler", scheduler: "simple", denoise: 1.0,
+      cfg: p.guidance, sampler_name: p.sampler ?? "euler", scheduler: "simple", denoise: 1.0,
     }),
     "10": n("VAEDecode", { samples: ["9", 0], vae: ["3", 0] }),
     "11": n("SaveImage", { images: ["10", 0], filename_prefix: "imagestudio/api" }),
@@ -90,7 +92,7 @@ export function buildClassicRef(
   wf["9"] = n("KSampler", {
     model: ["4", 0], positive: ["5", 0], negative: ["6", 0],
     latent_image: ["8", 0], seed: p.seed, steps: p.steps,
-    cfg: p.guidance, sampler_name: "euler", scheduler: "simple",
+    cfg: p.guidance, sampler_name: p.sampler ?? "euler", scheduler: "simple",
     denoise: strength,
   });
   return wf;

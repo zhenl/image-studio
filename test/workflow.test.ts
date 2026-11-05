@@ -40,6 +40,17 @@ describe("buildTxt2Img", () => {
     expect(wf["3"]!.inputs.vae_name).toBe("qwen_image_2.1_vae_bf16.safetensors");
   });
 
+  it("采样器可选：默认 euler，可指定 res_multistep", () => {
+    const ks1 = buildTxt2Img(p)["9"]!.inputs as Record<string, unknown>;
+    expect(ks1.sampler_name).toBe("euler");
+    const wf2 = buildTxt2Img({ ...p, sampler: "res_multistep" });
+    const ks2 = wf2["9"]!.inputs as Record<string, unknown>;
+    expect(ks2.sampler_name).toBe("res_multistep");
+    // 传统重绘同样生效
+    const wf3 = buildClassicRef({ ...p, sampler: "res_multistep" }, "r.png", 0.6);
+    expect((wf3["9"]!.inputs as Record<string, unknown>).sampler_name).toBe("res_multistep");
+  });
+
   it("safetensors 扩散模型走官方 UNETLoader", () => {
     const wf2 = buildTxt2Img({
       ...p, models: { ...p.models, transformer: "model.safetensors" },

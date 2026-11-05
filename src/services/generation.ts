@@ -63,6 +63,7 @@ export class GenerationService {
       prompt: p.prompt, negative: p.negative_prompt,
       width: p.width, height: p.height, steps: p.steps,
       guidance: p.guidance_scale, seed,
+      sampler: (p as { sampler?: string }).sampler,
       models: {
         transformer: this.cfg.TRANSFORMER_FILE,
         textEncoder: this.cfg.TEXT_ENCODER_FILE,

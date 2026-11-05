@@ -38,6 +38,7 @@ function collectParams() {
     height: Number(document.querySelector("#sizePreset .active").dataset.h),
     steps: Number($("steps").value),
     guidance_scale: Number($("guidance").value),
+    sampler: $("sampler").value,
     seed: Number($("seed").value),
     batch_size: Number($("batch").value),
     mode: state.mode,
@@ -668,6 +669,11 @@ async function renderPromptList() {
   }
 }
 
+function updateCfg1Hint() {
+  const g = Number($("guidance").value);
+  $("cfg1Hint").classList.toggle("hidden", g !== 1);
+}
+
 function toast(msg) {
   const t = document.createElement("div");
   t.className = "toast";
@@ -723,9 +729,11 @@ function bindEvents() {
   for (const id of ["steps", "guidance", "batch"]) {
     $(id).addEventListener("input", (e) => {
       $(id + "Val").textContent = e.target.value;
+      updateCfg1Hint();
       scheduleEstimate();
     });
   }
+  $("sampler").addEventListener("change", () => { /* 纯偏好项，不影响估算 */ });
   $("btnRandomSeed").onclick = () => { $("seed").value = Math.floor(Math.random() * 2147483647); };
   $("btnGenerate").onclick = doGenerate;
   $("btnQueue").onclick = doQueue;

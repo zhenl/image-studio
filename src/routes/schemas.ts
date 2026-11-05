@@ -15,6 +15,7 @@ export const generateRequestSchema = z.object({
   height: z.number().int().min(64).max(2048).refine((v) => v % 64 === 0, "高必须是 64 的整数倍"),
   steps: z.number().int().min(1).max(100).default(d.DEFAULT_STEPS),
   guidance_scale: z.number().min(0).max(20).default(d.DEFAULT_GUIDANCE),
+  sampler: z.enum(["euler", "res_multistep", "dpmpp_2m", "dpmpp_2m_sde", "heun"]).default("euler"),
   seed: z.number().int().default(-1),
   batch_size: z.number().int().min(1).max(d.MAX_BATCH).default(1),
   mode: z.enum(["txt2img", "img2img"]).default("txt2img"),
