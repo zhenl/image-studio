@@ -353,3 +353,15 @@ describe("POST /api/v1/describe（图像反推提示词）", () => {
     expect(r.json().message).toContain("编码器未加载");
   });
 });
+
+describe("批量删除任务（存在项分支）", () => {
+  it("删除存在的任务并统计", async () => {
+    const created = await app.inject({ method: "POST", url: "/api/v1/jobs",
+      payload: { prompt: "batch del", width: 512, height: 512, steps: 4 } });
+    const jobId = created.json().job_id;
+    const r = await app.inject({ method: "POST", url: "/api/v1/jobs/batch-delete",
+      payload: { ids: [jobId, "job_missing"] } });
+    expect(r.json().message).toContain("已删除 1 个");
+    expect((await app.inject({ method: "GET", url: `/api/v1/jobs/${jobId}` })).statusCode).toBe(404);
+  });
+});

@@ -488,6 +488,35 @@ async function refreshStatus() {
   } catch { /* 静默 */ }
 }
 
+/* ============ 模型预设 ============ */
+async function loadPresets() {
+  try {
+    const data = await api("/models/presets");
+    const sel = $("presetSelect");
+    sel.innerHTML = data.presets.map((p) =>
+      `<option value="${p.id}" ${p.id === data.current ? "selected" : ""}>${p.label}</option>`).join("");
+    if (data.current === "custom") sel.insertAdjacentHTML("beforeend", '<option value="" selected>（自定义模型组合）</option>');
+  } catch { /* 静默 */ }
+}
+
+async function selectPreset(id) {
+  if (!id) return;
+  try {
+    const res = await api("/models/preset/select", { method: "POST", body: JSON.stringify({ id }) });
+    toast(res.message);
+    // 参数约定同步：步数 / 引导系数（预设自带默认值）
+    const presets = (await api("/models/presets")).presets;
+    const p = presets.find((x) => x.id === id);
+    if (p) {
+      $("steps").value = p.defaults.steps; $("stepsVal").textContent = p.defaults.steps;
+      $("guidance").value = p.defaults.guidance; $("guidanceVal").textContent = Number(p.defaults.guidance).toFixed(1);
+      updateCfg1Hint();
+      scheduleEstimate();
+    }
+    refreshStatus();
+  } catch (e) { toast("切换失败：" + e.message); }
+}
+
 /* ============ 模型管理 ============ */
 async function openModels() {
   const modal = $("modelModal");
@@ -752,6 +781,7 @@ function bindEvents() {
   $("jobModalClose").onclick = () => $("jobModal").classList.add("hidden");
   $("jobModal").onclick = (e) => { if (e.target.id === "jobModal") $("jobModal").classList.add("hidden"); };
   $("btnModels").onclick = openModels;
+  $("presetSelect").addEventListener("change", (e) => selectPreset(e.target.value));
   $("btnPrompts").onclick = openPromptModal;
   $("btnDescribe").onclick = openDescribeModal;
   $("describeClose").onclick = () => $("describeModal").classList.add("hidden");

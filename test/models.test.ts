@@ -22,16 +22,16 @@ const fakeFetch: FetchLike = async (url) => {
     return json({ devices: [{ name: "RTX 5090", vram_total: 1, vram_free: 1 }] });
   }
   if (u.includes("/object_info/UnetLoaderGGUF")) {
-    return json({ UnetLoaderGGUF: { input: { required: { unet_name: [["a-Q4_K_M.gguf"]] } } } });
+    return json({ UnetLoaderGGUF: { input: { required: { unet_name: [["a-Q4_K_M.gguf", "qwen-image-2.1-UC-Q4_K_M.gguf"]] } } } });
   }
   if (u.includes("/object_info/UNETLoader")) {
-    return json({ UNETLoader: { input: { required: { unet_name: [["a-Q4_K_M.gguf", "text_encoders/te.safetensors", "vae/v.safetensors"]] } } } });
+    return json({ UNETLoader: { input: { required: { unet_name: [["a-Q4_K_M.gguf", "qwen-image-2.1-turbo-int8_convrot.safetensors", "text_encoders/te.safetensors", "vae/v.safetensors"]] } } } });
   }
   if (u.includes("/object_info/CLIPLoader")) {
-    return json({ CLIPLoader: { input: { required: { clip_name: [["te.safetensors"]] } } } });
+    return json({ CLIPLoader: { input: { required: { clip_name: [["te.safetensors", "qwen3vl_8b_int8_convrot.safetensors"]] } } } });
   }
   if (u.includes("/object_info/VAELoader")) {
-    return json({ VAELoader: { input: { required: { vae_name: [["v.safetensors"]] } } } });
+    return json({ VAELoader: { input: { required: { vae_name: [["v.safetensors", "qwen_image_2.1_vae_bf16.safetensors"]] } } } });
   }
   if (u.includes("/prompt")) {
     return json({ prompt_id: "pid", number: 1, node_errors: {} });
@@ -89,10 +89,13 @@ describe("GET /api/v1/models/list", () => {
     const res = await app.inject({ method: "GET", url: "/api/v1/models/list" });
     const body = res.json();
     expect(body.source).toBe("comfy");
-    expect(body.items.map((i: { name: string }) => i.name)).toEqual(["a-Q4_K_M.gguf"]);
+    const names = body.items.map((i: { name: string }) => i.name);
+    expect(names).toContain("a-Q4_K_M.gguf");
+    expect(names).toContain("qwen-image-2.1-turbo-int8_convrot.safetensors");
+    expect(names.every((n: string) => !n.startsWith("text_encoders/") && !n.startsWith("vae/"))).toBe(true);
     expect(body.items[0].current).toBe(true);
     expect(body.text_encoders[0].name).toBe("te.safetensors");
-    expect(body.vaes.map((i: { name: string }) => i.name)).toEqual(["v.safetensors"]);
+    expect(body.vaes.map((i: { name: string }) => i.name)).toContain("v.safetensors");
   });
 });
 
@@ -131,5 +134,69 @@ describe("POST /api/v1/models/select", () => {
   it("不存在的文本编码器 404", async () => {
     const r = await app.inject({ method: "POST", url: "/api/v1/models/select", payload: { text_encoder: "nope.safetensors" } });
     expect(r.statusCode).toBe(404);
+  });
+});
+
+describe("模型预设", () => {
+  it("GET /models/presets 返回清单与当前项", async () => {
+    const r = (await app.inject({ method: "GET", url: "/api/v1/models/presets" })).json();
+    expect(r.presets).toHaveLength(2);
+    expect(r.presets.map((p: { id: string }) => p.id)).toEqual(["qwen-2.1", "qwen-2.1-turbo"]);
+    const turbo = r.presets[1];
+    expect(turbo.files.transformer).toContain("turbo");
+    expect(turbo.defaults).toEqual({ steps: 8, guidance: 1.0 });
+  });
+
+  it("POST /models/preset/select：校验可见性 → 应用 → .env 持久化；未知 404", async () => {
+    expect((await app.inject({ method: "POST", url: "/api/v1/models/preset/select", payload: { id: "nope" } })).statusCode).toBe(404);
+    const sel = (await app.inject({ method: "POST", url: "/api/v1/models/preset/select", payload: { id: "qwen-2.1-turbo" } })).json();
+    expect(sel.ok).toBe(true);
+    expect(sel.message).toContain("Turbo");
+    expect(ctx.cfg.TRANSFORMER_FILE).toContain("turbo");
+    expect(fs.readFileSync(envFile, "utf8")).toContain("TRANSFORMER_FILE=qwen-image-2.1-turbo-int8_convrot.safetensors");
+    // 切回主力
+    const back = (await app.inject({ method: "POST", url: "/api/v1/models/preset/select", payload: { id: "qwen-2.1" } })).json();
+    expect(back.ok).toBe(true);
+    expect(ctx.cfg.TRANSFORMER_FILE).not.toContain("turbo");
+  });
+
+  it("模型不可见时 422（假列表无 z-image）", async () => {
+    const r = await app.inject({ method: "POST", url: "/api/v1/models/preset/select", payload: { id: "qwen-2.1" } });
+    // 假 ComfyUI 提供全部 qwen 文件，此预设应可用
+    expect(r.json().ok).toBe(true);
+  });
+});
+
+describe("预设补充分支", () => {
+  it("模型不可见时 422 MODEL_MISSING（临时改预设文件名为不存在项）", async () => {
+    const { PRESETS } = await import("../src/services/presets.js");
+    const orig = PRESETS[1]!.files.transformer;
+    PRESETS[1]!.files.transformer = "not-exist.safetensors";
+    try {
+      const r = await app.inject({ method: "POST", url: "/api/v1/models/preset/select", payload: { id: "qwen-2.1-turbo" } });
+      expect(r.statusCode).toBe(422);
+      expect(r.json().code).toBe("MODEL_MISSING");
+      expect(r.json().message).toContain("not-exist.safetensors");
+    } finally {
+      PRESETS[1]!.files.transformer = orig;
+    }
+  });
+});
+
+describe("模型管理：TE/VAE 切换分支", () => {
+  it("仅切换文本编码器与 VAE（覆盖 persist 分支）", async () => {
+    const r1 = await app.inject({ method: "POST", url: "/api/v1/models/select",
+      payload: { text_encoder: "te.safetensors" } });
+    expect(r1.json().ok).toBe(true);
+    const r2 = await app.inject({ method: "POST", url: "/api/v1/models/select",
+      payload: { vae: "v.safetensors" } });
+    expect(r2.json().ok).toBe(true);
+    // 不存在项 404
+    expect((await app.inject({ method: "POST", url: "/api/v1/models/select",
+      payload: { vae: "nope.safetensors" } })).statusCode).toBe(404);
+    // 已是当前值 → 无需切换分支
+    const again = await app.inject({ method: "POST", url: "/api/v1/models/select",
+      payload: { vae: "v.safetensors" } });
+    expect(again.json().message).toContain("无需切换");
   });
 });

@@ -1006,3 +1006,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .describe-drop.dragover { border-color: var(--primary, #3b6ef5); }
 .describe-drop img { max-width: 100%; max-height: 240px; object-fit: contain; }
+
+/* 模型预设下拉（顶栏） */
+.model-select { max-width: 260px; border: 1px solid var(--border, #ddd); border-radius: 8px;
+  padding: 6px 10px; font-size: 13px; background: #fff; color: inherit; }

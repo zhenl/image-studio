@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
+import { PRESETS, detectPreset } from "../services/presets.js";
 
 export function modelRoutes(app: FastifyInstance, ctx: AppContext): void {
   const { comfy, cfg } = ctx;
@@ -16,6 +17,52 @@ export function modelRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   const mark = (files: string[] | null, current: string) =>
     (files ?? []).map((name) => ({ name, quant: quantOf(name), current: name === current }));
+
+  // ---------- 模型预设 ----------
+  app.get("/models/presets", () => ({
+    current: detectPreset(cfg),
+    presets: PRESETS.map((p) => ({
+      id: p.id, label: p.label, description: p.description,
+      files: p.files, defaults: p.defaults, hint: p.hint,
+    })),
+  }));
+
+  app.post("/models/preset/select", async (req, reply) => {
+    const id = (req.body as { id?: string } | null)?.id;
+    const preset = PRESETS.find((p) => p.id === id);
+    if (!preset) {
+      return reply.status(404).send({ code: "NOT_FOUND", message: `未知预设：${id ?? "(空)"}` });
+    }
+    // 校验三件模型 ComfyUI 均可见（防下错文件名）
+    const visible = {
+      transformer: (await comfy.listNodeFiles(["UnetLoaderGGUF", "UNETLoader"], "unet_name") ?? [])
+        .filter((s) => s.split("/")[0] !== "text_encoders" && s.split("/")[0] !== "vae"),
+      textEncoder: (await comfy.listNodeFiles(["CLIPLoader"], "clip_name")) ?? [],
+      vae: (await comfy.listNodeFiles(["VAELoader"], "vae_name")) ?? [],
+    };
+    const missing: string[] = [];
+    if (!visible.transformer.includes(preset.files.transformer)) missing.push(preset.files.transformer);
+    if (!visible.textEncoder.includes(preset.files.textEncoder)) missing.push(preset.files.textEncoder);
+    if (!visible.vae.includes(preset.files.vae)) missing.push(preset.files.vae);
+    if (missing.length) {
+      return reply.status(422).send({
+        code: "MODEL_MISSING",
+        message: `ComfyUI 看不到：${missing.join("、")}，请确认模型文件与 extra_model_paths 映射`,
+      });
+    }
+    // 应用：运行时 + .env 持久化
+    cfg.TRANSFORMER_FILE = preset.files.transformer;
+    cfg.TEXT_ENCODER_FILE = preset.files.textEncoder;
+    cfg.VAE_FILE = preset.files.vae;
+    persistEnv("TRANSFORMER_FILE", preset.files.transformer);
+    persistEnv("TEXT_ENCODER_FILE", preset.files.textEncoder);
+    persistEnv("VAE_FILE", preset.files.vae);
+    return {
+      ok: true,
+      message: `已切换：${preset.label}（${preset.hint}）`,
+      defaults: preset.defaults,
+    };
+  });
 
   app.get("/models/list", async () => {
     const diffusion = await comfy.listNodeFiles(["UnetLoaderGGUF", "UNETLoader"], "unet_name");
