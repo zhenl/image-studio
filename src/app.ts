@@ -3,6 +3,7 @@
  * 独立于监听端口，便于测试用 app.inject() 直调。
  */
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import Fastify, { type FastifyInstance, type FastifyError } from "fastify";
 import { config } from "./config.js";
@@ -29,8 +30,19 @@ export function buildApp(ctx: AppContext = buildContext()): FastifyInstance {
   });
   for (const file of ["app.js", "style.css"]) {
     app.get(`/${file}`, (_req, reply) => {
+      const full = path.join(config.frontendDirAbs, file);
       reply.header("Content-Type", MIME[path.extname(file)] ?? "text/plain");
-      return reply.send(fs.createReadStream(path.join(config.frontendDirAbs, file)));
+      if (fs.existsSync(full)) return reply.send(fs.createReadStream(full));
+      // 兜底：执行环境文件层偶发丢文件（见 comic-studio-ts/docs/文件丢失问题排查.md），
+      // 直接从 git HEAD 取内容返回，页面不再白屏
+      try {
+        const blob = execFileSync("git", ["show", `HEAD:frontend/${file}`],
+          { cwd: config.projectRoot, maxBuffer: 5 * 1024 * 1024 });
+        console.warn(`[兜底] frontend/${file} 磁盘缺失，已用 git HEAD 版本直接提供（${blob.length}B）`);
+        return reply.send(blob);
+      } catch {
+        return reply.status(404).send({ message: `前端文件缺失且 git 无此文件：${file}` });
+      }
     });
   }
   app.register(healthRoutes, { prefix: "/api/v1" });

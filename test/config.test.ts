@@ -6,7 +6,7 @@ import { loadConfig } from "../src/config.js";
 
 describe("loadConfig", () => {
   it("提供全部默认值", () => {
-    const c = loadConfig({});
+    const c = loadConfig({}, path.join(os.tmpdir(), "no-such-env-file"));
     expect(c.PORT).toBe(8030);
     expect(c.ENGINE_MODE).toBe("comfy");
     expect(c.COMFYUI_URL).toBe("http://127.0.0.1:8188");
