@@ -38,3 +38,14 @@ describe("ensureDirs（经由 loadConfig 派生路径验证）", () => {
     expect(c.outputDirAbs).toContain("outputs");
   });
 });
+
+describe("前端文件完整性（回归防线）", () => {
+  it("测试后真实前端文件必须存在", async () => {
+    const fs2 = await import("node:fs");
+    const path2 = await import("node:path");
+    const { config } = await import("../src/config.js");
+    for (const f of ["index.html", "app.js", "style.css"]) {
+      expect(fs2.existsSync(path2.join(config.frontendDirAbs, f))).toBe(true);
+    }
+  });
+});

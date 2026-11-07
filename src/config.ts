@@ -30,6 +30,8 @@ const schema = z.object({
   INFER_TIMEOUT_SECONDS: z.coerce.number().default(2400),
   MAX_QUEUE_SIZE: z.coerce.number().default(20),
   DATA_DIR: z.string().default("data"),
+  /** 前端静态文件目录（相对项目根；测试可注入临时目录，避免污染真实文件） */
+  FRONTEND_DIR: z.string().default("frontend"),
   OUTPUT_DIR: z.string().default("data/outputs"),
   DB_PATH: z.string().default("data/app.db"),
   MAX_OUTPUT_DIR_GB: z.coerce.number().default(50),
@@ -63,7 +65,7 @@ export function loadConfig(
     dataDirAbs: path.resolve(projectRoot, parsed.DATA_DIR),
     outputDirAbs: path.resolve(projectRoot, parsed.OUTPUT_DIR),
     dbPathAbs: path.resolve(projectRoot, parsed.DB_PATH),
-    frontendDirAbs: path.resolve(projectRoot, "frontend"),
+    frontendDirAbs: path.resolve(projectRoot, parsed.FRONTEND_DIR),
     envFileAbs: dotenvPath,
   };
 }
