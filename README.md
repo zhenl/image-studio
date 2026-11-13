@@ -18,7 +18,7 @@ ComfyUI 服务之后，应用端技术栈自由选择。
 
 ## 快速开始
 
-前置：本机有常驻 ComfyUI 服务（参见 [comfy-service](../comfy-service)），
+前置：本机有常驻 ComfyUI 服务（任意 ComfyUI 安装均可，默认 http://127.0.0.1:8188），
 端口 8188，模型 Qwen-Image 2.1（GGUF）。
 
 ```bash
@@ -77,8 +77,7 @@ Fastify 后端（本仓库）
   反推、zip 等十项技术的原理与实现索引
 - [调试实录](docs/调试实录-WS消息全部丢弃.md) —— WS 帧语义陷阱排查全过程
 
-架构总览另见 comfy-service 的
-[前后端分离架构指南](../comfy-service/docs/前后端分离架构指南.md)。
+架构总览另见配套的《前后端分离架构指南》文档（comfy-service 项目 docs 目录）。
 
 ## 许可
 
