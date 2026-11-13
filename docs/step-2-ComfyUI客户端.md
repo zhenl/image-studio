@@ -61,6 +61,6 @@ Node 18+ 内置的 `AbortSignal.timeout(ms)` 让每个请求自带超时，
 
 ## 与 Python 版对照
 
-qwenimage-studio 的 `comfy_engine.py` / `comfy_http.py` 同样三步
+经典做法同样是这三步
 （提交 → 监听 → 取图），但拆在多个文件且依赖真实连接做集成验证；
 TS 版一个类 + 注入，全部行为可在毫秒级单测里复现。

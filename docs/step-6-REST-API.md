@@ -1,7 +1,7 @@
 # Step 6 · REST API：生成、任务、估算、图库与 SSE
 
 对应分支 `step-6-api`。本步骤把服务能力通过 HTTP 暴露出来，
-接口契约与 qwenimage-studio 对齐（前端可近乎原样移植）。
+接口契约按前后端分离约定设计，前端为原生 HTML/JS。
 
 ## 完成内容
 
@@ -54,7 +54,7 @@ req.raw.on("close", off);   // 浏览器断开时退订，防泄漏
 ### 估算接口带校准语义
 
 返回 `calibrated` / `samples`，未校准时警告里明确提示"完成首次
-生成后会自动校准"——与 qwenimage-studio 改进后的行为一致。
+生成后会自动校准"。
 测试里用 `calibrator.invalidate()` 绕过 30s 缓存验证两个分支。
 
 ### 静态产物服务

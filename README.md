@@ -1,8 +1,8 @@
 # Image Studio · 本地图片生成器（Node.js + TypeScript）
 
-**qwenimage-studio 的 Node.js + TypeScript 实现**——同样的功能、同样的
-前后端分离架构，用于演示：推理下沉到独立 ComfyUI 服务之后，应用端的
-技术栈是自由选择的。
+**本地图片生成器**（Node.js + TypeScript 独立示例）：文生图 / 参考图
+编辑 / 模型管理 / 任务队列，基于前后端分离架构——推理下沉到独立
+ComfyUI 服务之后，应用端技术栈自由选择。
 
 `Fastify` · `better-sqlite3` · `sharp` · `zod` · `vitest` · `原生 HTML/JS 前端`
 
@@ -79,18 +79,6 @@ Fastify 后端（本仓库）
 
 架构总览另见 comfy-service 的
 [前后端分离架构指南](../comfy-service/docs/前后端分离架构指南.md)。
-
-## 与 qwenimage-studio（Python）的对照
-
-| 模块 | Python 版 | 本项目 |
-|:---|:---|:---|
-| Web 框架 | FastAPI | Fastify |
-| 校验 | pydantic | zod |
-| ComfyUI 客户端 | urllib + websocket-client | fetch + ws（工厂可注入） |
-| 数据库 | sqlite3 | better-sqlite3 |
-| 图像处理 | Pillow | sharp |
-| 配置 | pydantic-settings | zod + dotenv（可注入） |
-| 测试 | pytest（依赖真实服务集成） | vitest（全量假实现，毫秒级） |
 
 ## 许可
 

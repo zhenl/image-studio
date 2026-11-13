@@ -56,7 +56,7 @@ seconds = k · steps · MP · batch + overhead
   （抗离群点：偶发的冷启动/后台抢占不会拉偏估计）
 - 30s TTL 缓存：估算面板输入抖动时不反复扫表
 - 无样本回退 `k=260`（RTX 2060 参考值）并标注 `calibrated: false`，
-  前端据此提示"未校准"——与 qwenimage-studio 的行为一致
+  前端据此提示"未校准"
   （实测校准后误差 ~10%）
 
 ## 测试
