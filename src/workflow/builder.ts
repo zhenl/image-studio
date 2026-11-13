@@ -1,7 +1,7 @@
 /**
  * ComfyUI 工作流构建器（纯函数）。
  *
- * 三种通道，与 qwenimage-studio 的 comfy_engine._build_workflow 对齐：
+ * 三种通道：
  * - txt2img：EmptySD3LatentImage → KSampler → VAEDecode → SaveImage
  * - classic：参考图编码回 latent，denoise = 重绘强度
  * - edit：TextEncodeQwenImage21 原生多参考图编辑（CFG=1、denoise=1）

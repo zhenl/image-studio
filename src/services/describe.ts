@@ -1,7 +1,7 @@
 /**
  * 图像反推提示词：CLIPLoader(qwen_image) → LoadImage → TextGenerate → SaveText。
  * 复用出图的 Qwen3-VL-8B 文本编码器（自带视觉塔），贪心解码，无需额外模型。
- * 移植自 qwenimage-studio 的 describe_image；结果取自 /history 的 text 输出。
+ * 图像反推：提交 TextGenerate 工作流，结果取自 /history 的 text 输出。
  */
 import sharp from "sharp";
 import type { Workflow, OutputImage } from "../comfy/client.js";

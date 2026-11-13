@@ -1,7 +1,7 @@
 /**
  * 生成耗时自校准：elapsed ≈ k·步数·百万像素 + 固定开销。
  * 从 images 表近期记录取中位数（鲁棒抗离群点），带 TTL 缓存。
- * 移植自 qwenimage-studio 的 services/calibration.py。
+ * 本机耗时自校准：按近期出图记录线性拟合步数/MG 像素耗时。
  */
 import type { Store } from "../db/store.js";
 
